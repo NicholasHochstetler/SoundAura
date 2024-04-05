@@ -68,12 +68,10 @@ import javax.inject.Inject
 
     private val scope = coroutineScope ?: viewModelScope
 
-    val onBackButtonClick get() = when {
-        navigationState.willConsumeBackButtonClick ->
-            navigationState::onBackButtonClick
-        searchQuery.isActive ->
-            searchQuery::clear
-        else -> null
+    val onBackButtonClick: () -> Unit = {
+        if (searchQuery.isActive)
+            searchQuery.clear()
+        else navigationState.onBackButtonClick()
     }
 
     val title get() = StringResource(
@@ -119,8 +117,7 @@ import javax.inject.Inject
     fun onSettingsButtonClick() {
         if (searchQuery.isActive)
             searchQuery.clear()
-        navigationState.showingPresetSelector = false
-        navigationState.showingAppSettings = true
+        navigationState.showAppSettings()
     }
 }
 

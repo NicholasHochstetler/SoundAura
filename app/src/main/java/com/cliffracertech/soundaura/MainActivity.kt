@@ -98,11 +98,7 @@ import javax.inject.Inject
         dataStore.edit(lastLaunchedVersionCodeKey, BuildConfig.VERSION_CODE, scope)
     }
 
-    fun onBackButtonClick() = with(navigationState) {
-        if (willConsumeBackButtonClick) {
-            onBackButtonClick(); true
-        } else false
-    }
+    fun onBackButtonClick() = navigationState.onBackButtonClick()
 
     fun onActivityStart(context: Context) = playbackState.onActivityStart(context)
 

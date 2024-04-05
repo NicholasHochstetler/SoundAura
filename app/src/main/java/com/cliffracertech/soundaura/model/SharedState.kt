@@ -10,6 +10,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.cliffracertech.soundaura.addbutton.ExpandableButtonState
 import com.cliffracertech.soundaura.edit
 import com.cliffracertech.soundaura.model.database.Preset
 import com.cliffracertech.soundaura.model.database.PresetDao
@@ -25,18 +26,61 @@ import javax.inject.Inject
 @ActivityRetainedScoped
 class NavigationState @Inject constructor() {
     var showingAppSettings by mutableStateOf(false)
+        private set
     var showingPresetSelector by mutableStateOf(false)
+        private set
+    var addButtonState by mutableStateOf(ExpandableButtonState.Visible)
+        private set
 
-    val willConsumeBackButtonClick get() =
-        showingAppSettings || showingPresetSelector
+    fun showAppSettings() {
+        showingAppSettings = true
+        showingPresetSelector = false
+        addButtonState = ExpandableButtonState.Hidden
+    }
 
-    fun onBackButtonClick() { when {
+    fun hideAppSettings() {
+        showingAppSettings = false
+        showingPresetSelector = false
+        addButtonState = ExpandableButtonState.Visible
+    }
+
+    fun showPresetSelector() {
+        if (showingAppSettings)
+            return
+        showingPresetSelector = true
+        addButtonState = ExpandableButtonState.Visible
+    }
+
+    fun hidePresetSelector() {
+        if (showingAppSettings)
+            return
+        showingPresetSelector = false
+        addButtonState = ExpandableButtonState.Visible
+    }
+
+    fun toggleAddButtonExpandedState() {
+        if (showingAppSettings)
+            return
+        showingPresetSelector = false
+        addButtonState = addButtonState.toggledExpansion
+    }
+
+    fun collapseAddButton() {
+        if (showingAppSettings)
+            return
+        showingPresetSelector = false
+        addButtonState = ExpandableButtonState.Visible
+    }
+
+    fun onBackButtonClick(): Boolean = when {
         showingAppSettings -> {
-            showingAppSettings = false
+            hideAppSettings(); true
         } showingPresetSelector -> {
-            showingPresetSelector = false
-        }
-    }}
+            hidePresetSelector(); true
+        } addButtonState.isExpanded -> {
+            collapseAddButton(); true
+        } else -> false
+    }
 }
 
 /**

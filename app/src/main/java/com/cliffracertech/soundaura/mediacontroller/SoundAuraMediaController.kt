@@ -97,7 +97,7 @@ import javax.inject.Inject
     private val activePresetViewState = ActivePresetViewState(
         getName = ::activePresetName,
         getIsModified = ::activePresetIsModified,
-        onClick = { navigationState.showingPresetSelector = true })
+        onClick = navigationState::showPresetSelector)
 
     private val playButtonLongClickHintShownKey =
         booleanPreferencesKey(PrefKeys.playButtonLongClickHintShown)
@@ -207,7 +207,7 @@ import javax.inject.Inject
         onCloseButtonClick = ::closePresetSelector)
 
     private fun closePresetSelector() {
-        navigationState.showingPresetSelector = false
+        navigationState.hidePresetSelector()
     }
 
     var shownDialog by mutableStateOf<DialogType?>(null)

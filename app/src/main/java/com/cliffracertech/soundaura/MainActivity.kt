@@ -25,9 +25,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.datastore.core.DataStore
@@ -160,6 +160,8 @@ class MainActivity : ComponentActivity() {
             val windowWidthSizeClass = LocalWindowSizeClass.current.widthSizeClass
             val widthIsConstrained = windowWidthSizeClass == WindowWidthSizeClass.Compact
             val insets = LocalWindowInsets.current
+            if (insets.systemBars.bottom == 0)
+                return@setContentWithTheme
 
             NewVersionDialogShower(
                 lastLaunchedVersionCode = viewModel.lastLaunchedVersionCode,
@@ -192,6 +194,13 @@ class MainActivity : ComponentActivity() {
                 content = {
                     MainContent(widthIsConstrained, it)
                 })
+
+            AddTrackButton(
+                widthIsConstrained = widthIsConstrained,
+                padding = rememberInsetsPaddingValues(
+                    insets = insets.systemBars,
+                    additionalEnd = 8.dp,
+                    additionalBottom = 8.dp))
         }
     }
 
@@ -270,11 +279,6 @@ class MainActivity : ComponentActivity() {
         }
 
         MediaController(padding, alignToEnd = !widthIsConstrained)
-
-        AddTrackButton(
-            visible = !showingAppSettings,
-            widthIsConstrained = widthIsConstrained,
-            modifier = Modifier.padding(padding))
     }
 
     @Composable private fun BoxWithConstraintsScope.MediaController(
@@ -331,19 +335,17 @@ class MainActivity : ComponentActivity() {
             Modifier, mediaControllerSizes, alignment, padding)
     }
 
-    /** Compose an add button at the bottom end edge of the screen that is
-     * conditionally visible depending on the value of [visible]. */
-    @Composable private fun BoxScope.AddTrackButton(
-        visible: Boolean,
+    @Composable private fun AddTrackButton(
         widthIsConstrained: Boolean,
+        padding: PaddingValues,
         modifier: Modifier = Modifier,
     ) {
         val showingPresetSelector = viewModel.showingPresetSelector
         // Different stiffnesses are used for the x and y offsets so that the
         // add button moves in a swooping movement instead of a linear one
         val addButtonXDpOffset by animateDpAsState(
-            targetValue = when {
-                showingPresetSelector -> (-16).dp
+            targetValue = -padding.calculateEndPadding(LocalLayoutDirection.current) - when {
+                showingPresetSelector -> 16.dp
                 widthIsConstrained -> 0.dp
                 else -> {
                     // We want the x offset to be half of the difference between the
@@ -357,31 +359,18 @@ class MainActivity : ComponentActivity() {
             animationSpec = tween(tweenDuration * 5 / 4, 0, LinearOutSlowInEasing))
 
         val addButtonYDpOffset by animateDpAsState(
-            targetValue = if (!showingPresetSelector) 0.dp
-                          else (-16).dp,
+            targetValue = -padding.calculateBottomPadding() -
+                          if (showingPresetSelector) 16.dp else 0.dp,
             label = "Add button y offset animation",
             animationSpec = tween(tweenDuration, 0, LinearOutSlowInEasing))
 
-        val enterSpec = tween<Float>(
-            durationMillis = tweenDuration,
-            easing = LinearOutSlowInEasing)
-        val exitSpec = tween<Float>(
-            durationMillis = tweenDuration,
-            delayMillis = tweenDuration / 3,
-            easing = LinearOutSlowInEasing)
-        AnimatedVisibility( // add track button
-            visible = visible,
-            modifier = modifier
-                .align(Alignment.BottomEnd)
-                .offset { IntOffset(
-                    addButtonXDpOffset.roundToPx(),
-                    addButtonYDpOffset.roundToPx()
-                )},
-            enter = fadeIn(enterSpec) + scaleIn(enterSpec, initialScale = 0.8f),
-            exit = fadeOut(exitSpec) + scaleOut(exitSpec, targetScale = 0.8f),
-        ) {
-            AddButton(MaterialTheme.colors.secondaryVariant)
-        }
+        AddButton(
+            backgroundColor = MaterialTheme.colors.secondaryVariant,
+            modifier = modifier,
+            buttonModifier = Modifier.graphicsLayer {
+                translationX = addButtonXDpOffset.toPx()
+                translationY = addButtonYDpOffset.toPx()
+            })
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?) =

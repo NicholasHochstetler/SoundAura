@@ -25,7 +25,7 @@ class ReadModifyPresetsUseCase @Inject constructor(
      * the returned ValidatedNamingState's [ValidatedNamingState.finish] method
      * is called and the input name is valid, a new preset with the validated
      * name will be created and [onAddPreset] will be invoked. */
-    suspend fun beginAddNewPreset(
+    suspend fun newPresetNamingState(
         scope: CoroutineScope,
         onAddPreset: (() -> Unit)? = null,
     ): ValidatedNamingState? {

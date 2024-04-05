@@ -6,12 +6,15 @@ package com.cliffracertech.soundaura.addbutton
 import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Uri
-import androidx.compose.material.FloatingActionButton
-import androidx.compose.material.FloatingActionButtonDefaults
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Text
+import androidx.compose.material.TextButton
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AudioFile
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -70,6 +73,9 @@ class AddButtonViewModel(
 
     private val scope = coroutineScope ?: viewModelScope
 
+    val state get() = navigationState.addButtonState
+    val onOverlayClick = navigationState::collapseAddButton
+
     var dialogState by mutableStateOf<AddButtonDialogState?>(null)
         private set
 
@@ -83,11 +89,11 @@ class AddButtonViewModel(
     }
 
 
-    fun onClick() { when {
+    val onClick: () -> Unit = { when {
         navigationState.showingAppSettings -> {}
         navigationState.showingPresetSelector -> {
             scope.launch {
-                val namingState = readModifyPresetsUseCase.beginAddNewPreset(
+                val namingState = readModifyPresetsUseCase.newPresetNamingState(
                     scope = scope,
                     onAddPreset = ::hideDialog)
                 if (namingState != null)
@@ -95,18 +101,25 @@ class AddButtonViewModel(
                         onDismissRequest = ::hideDialog,
                         namingState = namingState)
             }
-        } else -> {
-            dialogState = AddButtonDialogState.SelectingFiles(
-                onDismissRequest = ::hideDialog,
-                onFilesSelected = { chosenUris ->
-                    // If uris.size == 1, we can skip straight to the name
-                    // track dialog step to skip the user needing to choose
-                    if (chosenUris.size > 1)
-                        showAddIndividuallyOrAsPlaylistQueryStep(chosenUris)
-                    else showNameTracksStep(chosenUris)
-                })
-        }
+        } else -> navigationState.toggleAddButtonExpandedState()
     }}
+
+    val onAddFilesClick = {
+        onOverlayClick()
+        dialogState = AddButtonDialogState.SelectingFiles(
+            onDismissRequest = ::hideDialog,
+            onFilesSelected = { chosenUris ->
+                // If uris.size == 1, we can skip straight to the name
+                // track dialog step to skip the user needing to choose
+                if (chosenUris.size > 1)
+                    showAddIndividuallyOrAsPlaylistQueryStep(chosenUris)
+                else showNameTracksStep(chosenUris)
+            })
+    }
+
+    val onAddDirectoryClick = {
+        onOverlayClick()
+    }
 
     private fun showAddIndividuallyOrAsPlaylistQueryStep(chosenUris: List<Uri>) {
         dialogState = AddButtonDialogState.AddIndividuallyOrAsPlaylistQuery(
@@ -187,20 +200,47 @@ class AddButtonViewModel(
 @Composable fun AddButton(
     backgroundColor: Color,
     modifier: Modifier = Modifier,
+    buttonModifier: Modifier = Modifier,
 ) {
     val viewModel: AddButtonViewModel = viewModel()
 
-    FloatingActionButton(
-        onClick = viewModel::onClick,
-        modifier = modifier,
+    val filledButtonColors = ButtonDefaults.buttonColors(
         backgroundColor = backgroundColor,
-        elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp)
-    ) {
-        Icon(imageVector = Icons.Default.Add,
-             contentDescription = viewModel.onClickContentDescriptionResId?.let {
-                 stringResource(it)
-             }, tint = MaterialTheme.colors.onPrimary)
-    }
+        contentColor = MaterialTheme.colors.onSecondary)
+    ExpandableButton(
+        state = viewModel.state,
+        onClick = viewModel.onClick,
+        onClickDescriptionProvider = {
+            viewModel.onClickContentDescriptionResId
+                ?.let { stringResource(it) }
+        }, onOverlayClick = viewModel.onOverlayClick,
+        modifier = modifier,
+        buttonModifier = buttonModifier,
+        backgroundColor = backgroundColor,
+        expandedContent = listOf(
+            { modifier ->
+                TextButton(
+                    onClick = viewModel.onAddDirectoryClick,
+                    modifier = modifier,
+                    shape = MaterialTheme.shapes.medium,
+                    colors = filledButtonColors
+                ) {
+                    Text("Directory")
+                    Icon(Icons.Default.Folder, null,
+                        Modifier.padding(start = 4.dp, top = 4.dp, bottom = 4.dp))
+                }
+            }, { modifier ->
+                TextButton(
+                    onClick = viewModel.onAddFilesClick,
+                    modifier = modifier,
+                    shape = MaterialTheme.shapes.medium,
+                    colors = filledButtonColors
+                ) {
+                    Text("File(s)")
+                    Icon(Icons.Default.AudioFile, null,
+                        Modifier.padding(start = 4.dp, top = 4.dp, bottom = 4.dp))
+                }
+            }))
 
     viewModel.dialogState?.let { AddButtonDialogShower(it) }
 }

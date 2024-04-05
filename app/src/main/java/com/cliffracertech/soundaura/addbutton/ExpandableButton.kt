@@ -52,12 +52,13 @@ enum class ExpandableButtonState {
 @Composable fun ExpandableButton(
     state: ExpandableButtonState,
     onClick: () -> Unit,
+    onClickDescriptionProvider: @Composable () -> String?,
     onOverlayClick: () -> Unit,
     modifier: Modifier = Modifier,
     buttonModifier: Modifier = Modifier,
     icon: @Composable (() -> Float) -> Unit = { expansionProgressProvider ->
         Icon(imageVector = Icons.Default.Add,
-             contentDescription = null,
+             contentDescription = onClickDescriptionProvider(),
              modifier = Modifier.rotate(
                  if (state.isExpanded) expansionProgressProvider() * 45.0f
                  else 90.0f - expansionProgressProvider() * 45.0f),
@@ -87,15 +88,18 @@ enum class ExpandableButtonState {
             verticalArrangement = Arrangement.Bottom,
             horizontalAlignment = Alignment.End,
         ) {
-            for (i in (0..expandedContent.lastIndex)) {
-                val contentItem = expandedContent[i]
+            if (expansionProgress > 0f) {
+                for (i in (0..expandedContent.lastIndex)) {
+                    val contentItem = expandedContent[i]
+                    Spacer(Modifier.height(6.dp))
+                    contentItem(Modifier.graphicsLayer {
+                        translationY = 6.dp.toPx() * (expandedContent.size - i) * (1f - expansionProgress)
+                        alpha = expansionProgress
+                    })
+                }
                 Spacer(Modifier.height(6.dp))
-                contentItem(Modifier.graphicsLayer {
-                    translationY = 6.dp.toPx() * (expandedContent.size - i) * (1f - expansionProgress)
-                    alpha = expansionProgress
-                })
             }
-            Spacer(Modifier.height(6.dp))
+
             val enterSpec = tween<Float>(
                 durationMillis = tweenDuration,
                 easing = LinearOutSlowInEasing)

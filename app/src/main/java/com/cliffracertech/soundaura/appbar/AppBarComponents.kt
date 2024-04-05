@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -54,8 +55,13 @@ fun GradientToolBar(
     val gradient = remember(gradStart, gradEnd) {
         Brush.horizontalGradient(listOf(gradStart, gradEnd))
     }
-    Row(modifier.fillMaxWidth().background(gradient)
-        .statusBarsPadding().height(56.dp),
+    Row(modifier = modifier
+            .fillMaxWidth()
+            .navigationBarsPadding() // this will account for navigation bars on the side, which
+                                     // can happen for 3-button navigation users in landscape
+            .background(gradient)
+            .statusBarsPadding()
+            .height(56.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         val color = MaterialTheme.colors.onPrimary

@@ -51,7 +51,6 @@ import com.cliffracertech.soundaura.ui.theme.SoundAuraTheme
 import com.cliffracertech.soundaura.ui.tweenDuration
 import com.google.accompanist.insets.LocalWindowInsets
 import com.google.accompanist.insets.ProvideWindowInsets
-import com.google.accompanist.insets.navigationBarsHeight
 import com.google.accompanist.insets.rememberInsetsPaddingValues
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import dagger.hilt.android.AndroidEntryPoint
@@ -173,18 +172,18 @@ class MainActivity : ComponentActivity() {
             val scaffoldState = rememberScaffoldState()
             MessageDisplayer(scaffoldState.snackbarHostState)
 
+            val padding = rememberInsetsPaddingValues(
+                insets = insets.systemBars,
+                additionalStart = 8.dp,
+                // The 56dp is added here for the action bar's height.
+                additionalTop = 8.dp + 56.dp,
+                additionalEnd = 8.dp,
+                additionalBottom = 8.dp)
+
             com.google.accompanist.insets.ui.Scaffold(
                 scaffoldState = scaffoldState,
-                topBar = {
-                    val padding = rememberInsetsPaddingValues(
-                        // The top bar's top padding is set internally using
-                        // statusBarsPadding, so we have to use applyTop = false
-                        // here to prevent the top padding from being doubled.
-                        insets = insets.systemBars, applyTop = false, applyBottom = false)
-                    SoundAuraAppBar(modifier = Modifier.padding(padding))
-                }, bottomBar = {
-                    Spacer(Modifier.navigationBarsHeight().fillMaxWidth())
-                }, floatingActionButton = {
+                topBar = { SoundAuraAppBar() },
+                floatingActionButton = {
                     // The floating action buttons are added in the content
                     // section instead to have more control over their placement.
                     // A spacer is added here so that snack bars still appear
@@ -193,15 +192,9 @@ class MainActivity : ComponentActivity() {
                     // downward by 8dp due to the inherent snack bar padding.
                     if (widthIsConstrained)
                         Spacer(Modifier.height(48.dp).fillMaxWidth())
-                }, content = {
-                    val padding = rememberInsetsPaddingValues(
-                        insets = insets.systemBars,
-                        additionalStart = 8.dp,
-                        // The 56dp is added here for the action bar's height.
-                        additionalTop = 8.dp + 56.dp,
-                        additionalEnd = 8.dp,
-                        additionalBottom = 8.dp)
-                    MainContent(widthIsConstrained, padding)
+                }, contentPadding = padding,
+                content = {
+                    MainContent(widthIsConstrained, it)
                 })
         }
     }

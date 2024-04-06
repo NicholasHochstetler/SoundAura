@@ -10,12 +10,16 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.Divider
@@ -55,10 +59,15 @@ fun GradientToolBar(
     val gradient = remember(gradStart, gradEnd) {
         Brush.horizontalGradient(listOf(gradStart, gradEnd))
     }
+    // Side navigation bar insets need to be applied before the background
+    // so that the background will not draw under the navigation bar. Side
+    // navigation bar insets will usually be zero, but may be non-zero for
+    // 3-button navigation users in landscape mode.
+    val sideNavigationInsets = WindowInsets.navigationBars
+        .only(WindowInsetsSides.Start + WindowInsetsSides.End)
     Row(modifier = modifier
             .fillMaxWidth()
-            .navigationBarsPadding() // this will account for navigation bars on the side, which
-                                     // can happen for 3-button navigation users in landscape
+            .windowInsetsPadding(sideNavigationInsets)
             .background(gradient)
             .statusBarsPadding()
             .height(56.dp),

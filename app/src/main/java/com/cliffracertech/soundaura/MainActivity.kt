@@ -3,16 +3,13 @@
  * the project's root directory to see the full license. */
 package com.cliffracertech.soundaura
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Bundle
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -49,9 +46,6 @@ import com.cliffracertech.soundaura.settings.PrefKeys
 import com.cliffracertech.soundaura.ui.SlideAnimatedContent
 import com.cliffracertech.soundaura.ui.theme.SoundAuraTheme
 import com.cliffracertech.soundaura.ui.tweenDuration
-import com.google.accompanist.insets.LocalWindowInsets
-import com.google.accompanist.insets.ProvideWindowInsets
-import com.google.accompanist.insets.rememberInsetsPaddingValues
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -78,7 +72,7 @@ import javax.inject.Inject
 
     val messages = messageHandler.messages
     val showingAppSettings get() = navigationState.showingAppSettings
-    val showingPresetSelector get() = navigationState.showingPresetSelector
+    val showingPresetSelector get() = navigationState.mediaControllerState.isExpanded
 
     private val appThemeKey = intPreferencesKey(PrefKeys.appTheme)
     // The thread must be blocked when reading the first value
@@ -94,7 +88,7 @@ import javax.inject.Inject
         initialValue = 0,
         defaultValue = 9, // version code 9 was the last version code before
         scope = scope)    // the lastLaunchedVersionCode was introduced
-    fun onNewVersionDialogShown() {
+    fun onNewVersionDialogDismiss() {
         dataStore.edit(lastLaunchedVersionCodeKey, BuildConfig.VERSION_CODE, scope)
     }
 
@@ -157,50 +151,46 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         setContentWithTheme {
-            val windowWidthSizeClass = LocalWindowSizeClass.current.widthSizeClass
-            val widthIsConstrained = windowWidthSizeClass == WindowWidthSizeClass.Compact
-            val insets = LocalWindowInsets.current
-            if (insets.systemBars.bottom == 0)
-                return@setContentWithTheme
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                val windowWidthSizeClass = LocalWindowSizeClass.current.widthSizeClass
+                val widthIsConstrained = windowWidthSizeClass == WindowWidthSizeClass.Compact
+                val snackbarHostState = remember { SnackbarHostState() }
 
-            NewVersionDialogShower(
-                lastLaunchedVersionCode = viewModel.lastLaunchedVersionCode,
-                onDialogDismissed = viewModel::onNewVersionDialogShown)
+                LaunchedEffect(Unit) {
+                    viewModel.messages.collect { message ->
+                        message.showAsSnackbar(this@MainActivity, snackbarHostState)
+                    }
+                }
 
-            val scaffoldState = rememberScaffoldState()
-            MessageDisplayer(scaffoldState.snackbarHostState)
+                NewVersionDialogShower(
+                    lastLaunchedVersionCode = viewModel.lastLaunchedVersionCode,
+                    onDialogDismissed = viewModel::onNewVersionDialogDismiss)
 
-            val padding = rememberInsetsPaddingValues(
-                insets = insets.systemBars,
-                additionalStart = 8.dp,
-                // The 56dp is added here for the action bar's height.
-                additionalTop = 8.dp + 56.dp,
-                additionalEnd = 8.dp,
-                additionalBottom = 8.dp)
+                Column {
+                    SoundAuraAppBar()
+                    MainContent(widthIsConstrained, PaddingValues(8.dp))
+                }
 
-            com.google.accompanist.insets.ui.Scaffold(
-                scaffoldState = scaffoldState,
-                topBar = { SoundAuraAppBar() },
-                floatingActionButton = {
-                    // The floating action buttons are added in the content
-                    // section instead to have more control over their placement.
-                    // A spacer is added here so that snack bars still appear
-                    // above the floating action buttons. 48dp was arrived at
-                    // by starting from the FAB size of 56dp and adjusting
-                    // downward by 8dp due to the inherent snack bar padding.
-                    if (widthIsConstrained)
-                        Spacer(Modifier.height(48.dp).fillMaxWidth())
-                }, contentPadding = padding,
-                content = {
-                    MainContent(widthIsConstrained, it)
-                })
+                val floatingButtonPadding = rememberWindowInsetsPaddingValues(
+                    insets = WindowInsets.systemBars, additionalPadding = 8.dp)
 
-            AddTrackButton(
-                widthIsConstrained = widthIsConstrained,
-                padding = rememberInsetsPaddingValues(
-                    insets = insets.systemBars,
-                    additionalEnd = 8.dp,
-                    additionalBottom = 8.dp))
+                SoundAuraMediaController(
+                    padding = floatingButtonPadding,
+                    alignment = if (widthIsConstrained)
+                                    Alignment.BottomStart as BiasAlignment
+                                else Alignment.TopEnd as BiasAlignment)
+
+                AddTrackButton(
+                    widthIsConstrained = widthIsConstrained,
+                    padding = floatingButtonPadding)
+
+                SnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(floatingButtonPadding)
+                        .padding(bottom = 56.dp))
+            }
         }
     }
 
@@ -230,18 +220,8 @@ class MainActivity : ComponentActivity() {
         SoundAuraTheme(useDarkTheme) {
             val windowSizeClass = calculateWindowSizeClass(this)
             CompositionLocalProvider(LocalWindowSizeClass provides windowSizeClass) {
-                ProvideWindowInsets { content() }
+                content()
             }
-        }
-    }
-
-    /** Compose a message handler that will read messages emitted from a
-     * MainActivityViewModel's messages member and display them using snack bars.*/
-    @Composable private fun MessageDisplayer(
-        snackbarHostState: SnackbarHostState
-    ) = LaunchedEffect(Unit) {
-        viewModel.messages.collect { message ->
-            message.showAsSnackbar(this@MainActivity, snackbarHostState)
         }
     }
 
@@ -249,12 +229,10 @@ class MainActivity : ComponentActivity() {
         if (widthIsConstrained) 0.dp
         else MediaControllerSizes.defaultStopTimerWidthDp.dp + 8.dp
 
-    @SuppressLint("UnusedBoxWithConstraintsScope") // the scope is used in MediaController
     @Composable private fun MainContent(
         widthIsConstrained: Boolean,
         padding: PaddingValues,
-    ) = BoxWithConstraints(Modifier.fillMaxSize()) {
-        val showingAppSettings = viewModel.showingAppSettings
+    ) {
         val ld = LocalLayoutDirection.current
         // The track list state is remembered here so that the
         // scrolling position will not be lost if the user
@@ -262,8 +240,8 @@ class MainActivity : ComponentActivity() {
         val trackListState = rememberLazyListState()
 
         SlideAnimatedContent(
-            targetState = showingAppSettings,
-            leftToRight = !showingAppSettings,
+            targetState = viewModel.showingAppSettings,
+            leftToRight = !viewModel.showingAppSettings,
             modifier = Modifier.fillMaxSize()
         ) { showingAppSettingsScreen ->
             if (showingAppSettingsScreen)
@@ -277,62 +255,6 @@ class MainActivity : ComponentActivity() {
                         additionalBottom = if (widthIsConstrained) 64.dp else 0.dp)
                 }, state = trackListState)
         }
-
-        MediaController(padding, alignToEnd = !widthIsConstrained)
-    }
-
-    @Composable private fun BoxWithConstraintsScope.MediaController(
-        padding: PaddingValues,
-        alignToEnd: Boolean
-    ) {
-        val ld = LocalLayoutDirection.current
-        val contentAreaSize = remember(padding) {
-            val startPadding = padding.calculateStartPadding(ld)
-            val endPadding = padding.calculateEndPadding(ld)
-            val topPadding = padding.calculateTopPadding()
-            val bottomPadding = padding.calculateBottomPadding()
-            DpSize(maxWidth - startPadding - endPadding,
-                   maxHeight - topPadding - bottomPadding)
-        }
-
-        val mediaControllerSizes = remember(padding, alignToEnd) {
-            // The goal is to have the media controller have such a length that
-            // the play/pause icon is centered in the content area's width in
-            // portrait mode, or centered in the content area's height in
-            // landscape mode. This preferred length is found by adding half of
-            // the play/pause button's size and the stop timer display's length
-            // (in case it needs to be displayed) to half of the length of the
-            // content area. The min value between this preferred length and the
-            // full content area length minus 64dp (i.e. the add button's 56dp
-            // size plus an 8dp margin) is then used to ensure that for small
-            // screen sizes the media controller can't overlap the add button.
-            val playButtonLength = MediaControllerSizes.defaultPlayButtonLengthDp.dp
-            val dividerThickness = MediaControllerSizes.dividerThicknessDp.dp
-            val stopTimerLength =
-                if (alignToEnd) MediaControllerSizes.defaultStopTimerHeightDp.dp
-                else            MediaControllerSizes.defaultStopTimerWidthDp.dp
-            val extraLength = playButtonLength / 2f + stopTimerLength
-            val length = if (alignToEnd) contentAreaSize.height / 2f + extraLength
-                         else            contentAreaSize.width / 2f + extraLength
-            val maxLength = if (alignToEnd) contentAreaSize.height - 64.dp
-                             else            contentAreaSize.width - 64.dp
-            val activePresetLength = minOf(length, maxLength) - playButtonLength -
-                                     dividerThickness - stopTimerLength
-            MediaControllerSizes(
-                orientation = if (alignToEnd) Orientation.Vertical
-                              else            Orientation.Horizontal,
-                activePresetLength = activePresetLength,
-                presetSelectorSize = DpSize(
-                    width = contentAreaSize.width * if (alignToEnd) 0.6f
-                                                    else            1.0f,
-                    height = if (!alignToEnd) 350.dp
-                             else contentAreaSize.height))
-        }
-
-        val alignment = if (alignToEnd) Alignment.TopEnd as BiasAlignment
-                        else            Alignment.BottomStart as BiasAlignment
-        SoundAuraMediaController(
-            Modifier, mediaControllerSizes, alignment, padding)
     }
 
     @Composable private fun AddTrackButton(
@@ -366,8 +288,7 @@ class MainActivity : ComponentActivity() {
 
         AddButton(
             backgroundColor = MaterialTheme.colors.secondaryVariant,
-            modifier = modifier,
-            buttonModifier = Modifier.graphicsLayer {
+            modifier = modifier.graphicsLayer {
                 translationX = addButtonXDpOffset.toPx()
                 translationY = addButtonYDpOffset.toPx()
             })

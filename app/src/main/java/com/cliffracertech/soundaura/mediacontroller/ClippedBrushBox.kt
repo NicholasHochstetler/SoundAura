@@ -4,9 +4,10 @@
 package com.cliffracertech.soundaura.mediacontroller
 
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
@@ -25,7 +26,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
@@ -69,7 +69,7 @@ val LayoutDirection.isLtr get() = this == LayoutDirection.Ltr
         label = "ClippedBrushBox height animation",
         animationSpec = defaultSpring())
 
-    BoxWithConstraints(Modifier
+    Box(Modifier
         .fillMaxSize()
         .padding(padding)
         .drawBehind {
@@ -86,12 +86,11 @@ val LayoutDirection.isLtr get() = this == LayoutDirection.Ltr
             drawRoundRect(brush, offset, boxSize, radius)
         }
     ) {
-        // For some reason the Box was allowing gestures to go through
-        // it. This empty pointerInput modifier prevents this.
         Box(modifier = modifier
                 .align(alignment)
                 .size(animatedWidth, animatedHeight)
-                .pointerInput(Unit) {},
+                .clickable(interactionSource = remember { MutableInteractionSource() },
+                           indication = null, onClick = {}), // to prevent clicks from passing through
             content = content)
     }
 }

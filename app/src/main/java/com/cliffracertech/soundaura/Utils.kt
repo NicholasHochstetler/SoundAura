@@ -4,6 +4,7 @@
 package com.cliffracertech.soundaura
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.padding
@@ -18,6 +19,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -226,3 +230,49 @@ fun PaddingValues(
         end = original.calculateEndPadding(layoutDirection) + additionalEnd,
         bottom = original.calculateBottomPadding() + additionalBottom)
 }
+
+fun WindowInsets.getStart(
+    density: Density,
+    layoutDirection: LayoutDirection,
+) = if (layoutDirection == LayoutDirection.Ltr)
+        getLeft(density, layoutDirection)
+    else getRight(density, layoutDirection)
+
+fun WindowInsets.getEnd(
+    density: Density,
+    layoutDirection: LayoutDirection,
+) = if (layoutDirection == LayoutDirection.Ltr)
+        getRight(density, layoutDirection)
+    else getLeft(density, layoutDirection)
+
+
+@Composable fun rememberWindowInsetsPaddingValues(
+    insets: WindowInsets,
+    additionalStart: Dp = 0.dp,
+    additionalTop: Dp = 0.dp,
+    additionalEnd: Dp = 0.dp,
+    additionalBottom: Dp = 0.dp,
+): PaddingValues {
+    val ld = LocalLayoutDirection.current
+    val density = LocalDensity.current
+
+    return remember(ld, density,
+        insets.getTop(density), insets.getLeft(density, ld),
+        insets.getBottom(density), insets.getRight(density, ld)
+    ) {
+        with (density) {
+            PaddingValues(
+                start = insets.getStart(this, ld).toDp() + additionalStart,
+                top = insets.getTop(this).toDp() + additionalTop,
+                end = insets.getEnd(this, ld).toDp() + additionalEnd,
+                bottom = insets.getBottom(this).toDp() + additionalBottom)
+        }
+    }
+}
+
+@Composable fun rememberWindowInsetsPaddingValues(
+    insets: WindowInsets,
+    additionalPadding: Dp = 0.dp,
+) = rememberWindowInsetsPaddingValues(
+    insets, additionalPadding, additionalPadding,
+    additionalPadding, additionalPadding)

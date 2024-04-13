@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.cliffracertech.soundaura.addbutton.ExpandableButtonState
 import com.cliffracertech.soundaura.edit
+import com.cliffracertech.soundaura.mediacontroller.MediaControllerState
 import com.cliffracertech.soundaura.model.database.Preset
 import com.cliffracertech.soundaura.model.database.PresetDao
 import com.cliffracertech.soundaura.settings.PrefKeys
@@ -27,55 +28,55 @@ import javax.inject.Inject
 class NavigationState @Inject constructor() {
     var showingAppSettings by mutableStateOf(false)
         private set
-    var showingPresetSelector by mutableStateOf(false)
+    var mediaControllerState by mutableStateOf(MediaControllerState.Visibility.Collapsed)
         private set
     var addButtonState by mutableStateOf(ExpandableButtonState.Visible)
         private set
 
     fun showAppSettings() {
         showingAppSettings = true
-        showingPresetSelector = false
+        mediaControllerState = MediaControllerState.Visibility.Hidden
         addButtonState = ExpandableButtonState.Hidden
     }
 
     fun hideAppSettings() {
         showingAppSettings = false
-        showingPresetSelector = false
+        mediaControllerState = MediaControllerState.Visibility.Collapsed
         addButtonState = ExpandableButtonState.Visible
     }
 
     fun showPresetSelector() {
         if (showingAppSettings)
             return
-        showingPresetSelector = true
+        mediaControllerState = MediaControllerState.Visibility.Expanded
         addButtonState = ExpandableButtonState.Visible
     }
 
     fun hidePresetSelector() {
         if (showingAppSettings)
             return
-        showingPresetSelector = false
+        mediaControllerState = MediaControllerState.Visibility.Collapsed
         addButtonState = ExpandableButtonState.Visible
     }
 
     fun toggleAddButtonExpandedState() {
         if (showingAppSettings)
             return
-        showingPresetSelector = false
+        mediaControllerState = MediaControllerState.Visibility.Collapsed
         addButtonState = addButtonState.toggledExpansion
     }
 
     fun collapseAddButton() {
         if (showingAppSettings)
             return
-        showingPresetSelector = false
+        mediaControllerState = MediaControllerState.Visibility.Collapsed
         addButtonState = ExpandableButtonState.Visible
     }
 
     fun onBackButtonClick(): Boolean = when {
         showingAppSettings -> {
             hideAppSettings(); true
-        } showingPresetSelector -> {
+        } mediaControllerState.isExpanded -> {
             hidePresetSelector(); true
         } addButtonState.isExpanded -> {
             collapseAddButton(); true

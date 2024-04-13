@@ -22,14 +22,14 @@ import com.cliffracertech.soundaura.R
  * through the properties [onClick], [clickLabelResId], [onLongClick], and
  * [longClickLabelResId], respectively. */
 class PlayButtonState(
-    private val getIsPlaying: () -> Boolean,
+    private val isPlayingProvider: () -> Boolean,
     val onClick: () -> Unit,
-    private val getClickLabelResId: (isPlaying: Boolean) -> Int,
+    private val clickLabelResIdProvider: (isPlaying: Boolean) -> Int,
     val onLongClick: () -> Unit,
     val longClickLabelResId: Int
 ) {
-    val isPlaying get() = getIsPlaying()
-    val clickLabelResId get() = getClickLabelResId(isPlaying)
+    val isPlaying get() = isPlayingProvider()
+    val clickLabelResId get() = clickLabelResIdProvider(isPlaying)
 }
 
 /**

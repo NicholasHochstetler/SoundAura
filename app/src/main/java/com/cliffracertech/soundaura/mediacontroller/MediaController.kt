@@ -4,7 +4,6 @@
 package com.cliffracertech.soundaura.mediacontroller
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -14,6 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -53,6 +53,7 @@ import com.cliffracertech.soundaura.model.database.Preset
 import com.cliffracertech.soundaura.rememberDerivedStateOf
 import com.cliffracertech.soundaura.rememberMutableStateOf
 import com.cliffracertech.soundaura.ui.MarqueeText
+import com.cliffracertech.soundaura.ui.Overlay
 import com.cliffracertech.soundaura.ui.defaultSpring
 import com.cliffracertech.soundaura.ui.theme.SoundAuraTheme
 import kotlinx.collections.immutable.toImmutableList
@@ -80,12 +81,12 @@ fun Modifier.rotateClockwise() = layout { measurable, constraints ->
  * [isModified]. The property [onClick] should be used as the onClick
  * callback for the active preset display. */
 class ActivePresetViewState(
-    private val getName: () -> String?,
-    private val getIsModified: () -> Boolean,
+    private val nameProvider: () -> String?,
+    private val isModifiedProvider: () -> Boolean,
     val onClick: () -> Unit,
 ) {
-    val name get() = getName()
-    val isModified get() = getIsModified()
+    val name get() = nameProvider()
+    val isModified get() = isModifiedProvider()
 }
 
 @Composable private fun ActivePresetView(
@@ -281,34 +282,43 @@ class ActivePresetViewState(
 
 /** A state holder for an expandable media controller. The states for the media
  * controller's sub-components are exposed through the properties [activePreset],
- * [playButton], and [presetList]. The expanded/collapsed state is
- * accessed through the property [showingPresetSelector]. The onClick callback
- * for the close button that should be shown when [showingPresetSelector] is
- * true should be set to the property [onCloseButtonClick]. If the property
- * [stopTime] returns a non-null [Instant], then the duration remaining until
- * the stop time should be displayed in a clickable display next to the play/
- * pause button, with the onClick action set to the property [onStopTimerClick]. */
+ * [playButton], and [presetList]. The expanded/collapsed/hidden state is
+ * accessed through the property [visibility]. The onClick callbacks for the
+ * close button and the overlay that should be shown when [visibility] is
+ * [Visibility.Expanded] should be set to the properties [onCloseButtonClick]
+ * and [onOverlayClick], respectively.
+ *
+ * If the property [stopTime] returns a non-null [Instant], then the duration
+ * remaining until the stop time should be displayed in a clickable display
+ * next to the play/pause button, with the onClick action set to the property
+ * [onStopTimerClick]. */
 class MediaControllerState(
     val activePreset: ActivePresetViewState,
     val playButton: PlayButtonState,
     val presetList: PresetListState,
-    private val getStopTime: () -> Instant?,
+    private val stopTimeProvider: () -> Instant?,
     val onStopTimerClick: () -> Unit,
-    private val getShowingPresetSelector: () -> Boolean,
+    private val visibilityProvider: () -> Visibility,
     val onCloseButtonClick: () -> Unit,
+    val onOverlayClick: () -> Unit,
 ) {
-    val stopTime get() = getStopTime()
-    val showingPresetSelector get() = getShowingPresetSelector()
+    enum class Visibility { Hidden, Collapsed, Expanded;
+        val isHidden get() = this == Hidden
+        val isCollapsed get() = this == Collapsed
+        val isExpanded get() = this == Expanded
+    }
+
+    val stopTime get() = stopTimeProvider()
+    val visibility get() = visibilityProvider()
 }
 
 /**
  * A floating button that shows information about the currently playing
- * [Preset] and a play/pause button. When the [state]'s
- * [MediaControllerState.showingPresetSelector] is true, the button will
+ * [Preset] and a play/pause button. When the [state]'s [MediaControllerState.visibility]
+ * is equal to [MediaControllerState.Visibility.Collapsed], the button will
  * animate its transformation into a preset selector. In this state it
  * will contain a [PresetList] to allow the user to choose a new preset.
  *
- * @param modifier The [Modifier] to use for the button / popup
  * @param sizes The [MediaControllerSizes] instance that describes the sizes
  *     of [MediaController]'s internal elements.
  * @param state The [MediaControllerState] that will be used for state and callbacks
@@ -320,68 +330,76 @@ class MediaControllerState(
  *     not be applied through the [modifier] parameter or it will be applied twice.
  * @param padding The [PaddingValues] to use for placement. This padding should not
  *     be applied through the [modifier] parameter or it will be applied twice.
+ * @param modifier The [Modifier] to use for the button / popup
  */
 @Composable fun MediaController(
-    modifier: Modifier = Modifier,
     sizes: MediaControllerSizes,
     state: MediaControllerState,
     backgroundBrush: Brush,
     alignment: BiasAlignment,
     padding: PaddingValues,
+    modifier: Modifier = Modifier,
 ) {
-    val isExpanded = remember { MutableTransitionState(state.showingPresetSelector) }
-    isExpanded.targetState = state.showingPresetSelector
-
     val expandTransition = updateTransition(
-        isExpanded, "MediaController expand transition")
+        targetState = state.visibility.isExpanded,
+        label = "MediaController expand transition")
     val expandTransitionProgress by expandTransition.animateFloat(
         transitionSpec = { defaultSpring() },
         label = "MediaController expand transition progress",
         targetValueByState = { if (it) 1f else 0f })
-    val transitionProgressProvider = remember {{ expandTransitionProgress }}
+    val transitionProgressProvider = { expandTransitionProgress }
     val hasStopTime by rememberDerivedStateOf { state.stopTime != null }
 
-    ClippedBrushBox(
-        modifier = modifier,
-        brush = backgroundBrush,
-        size = sizes.rememberCurrentSize(state.showingPresetSelector, hasStopTime),
-        cornerRadius = 28.dp,
-        padding = padding,
-        alignment = alignment,
+    Overlay(
+        show = state.visibility.isExpanded,
+        appearanceProgressProvider = transitionProgressProvider,
+        onClick = state.onOverlayClick,
+        contentAlignment = alignment,
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            val titleHeight by expandTransition.animateDp(
-                transitionSpec = { defaultSpring() },
-                label = "MediaController/preset selector title height transition",
-            ) { expanded ->
-                if (!expanded && sizes.orientation.isVertical)
-                    sizes.collapsedSize(hasStopTime).height
-                else sizes.minThickness
-            }
-            Box(Modifier.height(titleHeight)) {
-                if (expandTransitionProgress > 0f)
-                    PresetSelectorTitle(
-                        sizes, state.onCloseButtonClick,
-                        transitionProgressProvider)
+        ClippedBrushBox(
+            modifier = modifier,
+            brush = backgroundBrush,
+            size = sizes.rememberCurrentSize(
+                showingPresetSelector = state.visibility.isExpanded,
+                hasStopTime = hasStopTime),
+            cornerRadius = 28.dp,
+            alignment = alignment,
+            padding = padding,
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                val titleHeight by expandTransition.animateDp(
+                    transitionSpec = { defaultSpring() },
+                    label = "MediaController/preset selector title height transition",
+                ) { expanded ->
+                    if (!expanded && sizes.orientation.isVertical)
+                        sizes.collapsedSize(hasStopTime).height
+                    else sizes.minThickness
+                }
+                Box(Modifier.height(titleHeight)) {
+                    if (expandTransitionProgress > 0f)
+                        PresetSelectorTitle(
+                            sizes, state.onCloseButtonClick,
+                            transitionProgressProvider)
 
-                if (expandTransitionProgress < 1f)
-                    MediaControllerCollapsedContent(
-                        sizes, transitionProgressProvider,
-                        state.activePreset, state.playButton,
-                        state::stopTime, state.onStopTimerClick)
+                    if (expandTransitionProgress < 1f)
+                        MediaControllerCollapsedContent(
+                            sizes, transitionProgressProvider,
+                            state.activePreset, state.playButton,
+                            state::stopTime, state.onStopTimerClick)
+                }
+                MediaControllerPresetList(
+                    sizes, hasStopTime, backgroundBrush,
+                    transitionProgressProvider,
+                    state.activePreset, state.presetList)
             }
-            MediaControllerPresetList(
-                sizes, hasStopTime, backgroundBrush,
-                transitionProgressProvider,
-                state.activePreset,
-                state.presetList)
         }
     }
 }
 
 @Preview @Composable
 fun MediaControllerPreview() = SoundAuraTheme {
-    var expanded by rememberMutableStateOf(false)
+    var visibility by rememberMutableStateOf(
+        MediaControllerState.Visibility.Collapsed)
     var playing by rememberMutableStateOf(false)
     val list = remember { listOf(
         Preset("Super duper extra really long preset name 0"),
@@ -392,37 +410,39 @@ fun MediaControllerPreview() = SoundAuraTheme {
     val activePresetName = rememberMutableStateOf<String?>(list.first().name)
     var stopTime by rememberMutableStateOf<Instant?>(null)
 
-    MediaController(
-        sizes = MediaControllerSizes(
-            activePresetLength = 200.dp - 56.dp,
-            orientation = Orientation.Horizontal,
-            presetSelectorSize = DpSize(0.dp, 0.dp)),
-        backgroundBrush = Brush.horizontalGradient(
-            listOf(MaterialTheme.colors.primaryVariant,
-                   MaterialTheme.colors.secondaryVariant)),
-        alignment = Alignment.BottomStart as BiasAlignment,
-        padding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 8.dp),
-        state = remember { MediaControllerState(
-            ActivePresetViewState(
-                getName = activePresetName::value,
-                getIsModified = { true },
-                onClick = { expanded = true }),
-            PlayButtonState(
-                getIsPlaying = { playing },
-                onClick = { playing = !playing },
-                getClickLabelResId = { 0 },
-                onLongClick = {
-                    stopTime = Instant.now().plus(1, ChronoUnit.HOURS)
-                }, longClickLabelResId = 0),
-            PresetListState(
-                getList = { list },
-                onRenameClick = {},
-                onOverwriteClick = {},
-                onDeleteClick = {},
-                onClick = { activePresetName.value = it }),
-            getStopTime = { stopTime },
-            onStopTimerClick = { stopTime = null },
-            getShowingPresetSelector = { expanded },
-            onCloseButtonClick = { expanded = false }
-        )})
+    BoxWithConstraints {
+        MediaController(
+            sizes = MediaControllerSizes(
+                activePresetLength = 200.dp - 56.dp,
+                orientation = Orientation.Horizontal,
+                presetSelectorSize = DpSize(300.dp, 300.dp)),
+            state = remember { MediaControllerState(
+                ActivePresetViewState(
+                    nameProvider = activePresetName::value,
+                    isModifiedProvider = { true },
+                    onClick = { visibility = MediaControllerState.Visibility.Expanded }),
+                PlayButtonState(
+                    isPlayingProvider = { playing },
+                    onClick = { playing = !playing },
+                    clickLabelResIdProvider = { 0 },
+                    onLongClick = {
+                        stopTime = Instant.now().plus(1, ChronoUnit.HOURS)
+                    }, longClickLabelResId = 0),
+                PresetListState(
+                    listProvider = { list },
+                    onRenameClick = {},
+                    onOverwriteClick = {},
+                    onDeleteClick = {},
+                    onClick = { activePresetName.value = it }),
+                stopTimeProvider = { stopTime },
+                onStopTimerClick = { stopTime = null },
+                visibilityProvider = { visibility },
+                onCloseButtonClick = { visibility = MediaControllerState.Visibility.Collapsed },
+                onOverlayClick = { visibility = MediaControllerState.Visibility.Collapsed }
+            )}, backgroundBrush = Brush.horizontalGradient(
+                listOf(MaterialTheme.colors.primaryVariant,
+                    MaterialTheme.colors.secondaryVariant)),
+            alignment = Alignment.BottomStart as BiasAlignment,
+            padding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 8.dp))
+    }
 }

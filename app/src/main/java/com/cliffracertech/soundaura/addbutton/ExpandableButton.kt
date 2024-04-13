@@ -11,13 +11,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.FloatingActionButton
 import androidx.compose.material.FloatingActionButtonDefaults
@@ -27,14 +23,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
+import com.cliffracertech.soundaura.ui.Overlay
 import com.cliffracertech.soundaura.ui.defaultSpring
 import com.cliffracertech.soundaura.ui.tweenDuration
 
@@ -55,7 +50,6 @@ enum class ExpandableButtonState {
     onClickDescriptionProvider: @Composable () -> String?,
     onOverlayClick: () -> Unit,
     modifier: Modifier = Modifier,
-    buttonModifier: Modifier = Modifier,
     icon: @Composable (() -> Float) -> Unit = { expansionProgressProvider ->
         Icon(imageVector = Icons.Default.Add,
              contentDescription = onClickDescriptionProvider(),
@@ -71,20 +65,14 @@ enum class ExpandableButtonState {
         animationSpec = defaultSpring(),
         label = "add button expand animation progress",)
 
-    Box(modifier = modifier
-            .fillMaxSize()
-            .drawBehind {
-                drawRect(Color.Black, alpha = expansionProgress / 2f)
-            }.then(
-                if (state.isExpanded)
-                    Modifier.clickable(
-                        onClick = onOverlayClick, indication = null,
-                        interactionSource = remember{ MutableInteractionSource() })
-                else Modifier),
+    Overlay(
+        show = state.isExpanded,
+        appearanceProgressProvider = { expansionProgress },
+        onClick = onOverlayClick,
         contentAlignment = Alignment.BottomEnd
     ) {
         Column(
-            modifier = buttonModifier,
+            modifier = modifier,
             verticalArrangement = Arrangement.Bottom,
             horizontalAlignment = Alignment.End,
         ) {
@@ -121,6 +109,5 @@ enum class ExpandableButtonState {
                     ), content = { icon { expansionProgress } })
             }
         }
-
     }
 }

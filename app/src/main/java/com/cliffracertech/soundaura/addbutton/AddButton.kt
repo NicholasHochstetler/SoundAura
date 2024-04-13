@@ -83,7 +83,7 @@ class AddButtonViewModel(
 
     val onClickContentDescriptionResId get() = when {
         navigationState.showingAppSettings -> null
-        navigationState.showingPresetSelector ->
+        navigationState.mediaControllerState.isExpanded ->
             R.string.add_preset_button_description
         else -> R.string.add_local_files_button_description
     }
@@ -91,7 +91,7 @@ class AddButtonViewModel(
 
     val onClick: () -> Unit = { when {
         navigationState.showingAppSettings -> {}
-        navigationState.showingPresetSelector -> {
+        navigationState.mediaControllerState.isExpanded -> {
             scope.launch {
                 val namingState = readModifyPresetsUseCase.newPresetNamingState(
                     scope = scope,
@@ -200,7 +200,6 @@ class AddButtonViewModel(
 @Composable fun AddButton(
     backgroundColor: Color,
     modifier: Modifier = Modifier,
-    buttonModifier: Modifier = Modifier,
 ) {
     val viewModel: AddButtonViewModel = viewModel()
 
@@ -215,7 +214,6 @@ class AddButtonViewModel(
                 ?.let { stringResource(it) }
         }, onOverlayClick = viewModel.onOverlayClick,
         modifier = modifier,
-        buttonModifier = buttonModifier,
         backgroundColor = backgroundColor,
         expandedContent = listOf(
             { modifier ->

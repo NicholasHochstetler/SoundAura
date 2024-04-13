@@ -129,13 +129,13 @@ import kotlinx.collections.immutable.toImmutableList
  * options menu should utilize the properties [onRenameClick], [onOverwriteClick],
  * and [onDeleteClick], respectively. */
 class PresetListState(
-    private val getList: () -> ImmutableList<Preset>?,
+    private val listProvider: () -> ImmutableList<Preset>?,
     val onRenameClick: (String) -> Unit,
     val onOverwriteClick: (String) -> Unit,
     val onDeleteClick: (String) -> Unit,
     val onClick: (String) -> Unit,
 ) {
-    val list get() = getList()
+    val list get() = listProvider()
 }
 
 /**
@@ -200,15 +200,15 @@ fun PresetListPreview() = SoundAuraTheme {
 
     PresetList(
         activePresetState = ActivePresetViewState(
-            getName = { activePresetName },
-            getIsModified = { true },
+            nameProvider = { activePresetName },
+            isModifiedProvider = { true },
             onClick = {}),
         selectionBrush = Brush.horizontalGradient(
             listOf(MaterialTheme.colors.primaryVariant,
                    MaterialTheme.colors.secondaryVariant)),
         state = remember {
             PresetListState(
-                getList = { list },
+                listProvider = { list },
                 onRenameClick = {},
                 onOverwriteClick = {},
                 onDeleteClick = {},

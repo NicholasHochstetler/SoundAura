@@ -34,14 +34,14 @@ import com.cliffracertech.soundaura.ui.defaultSpring
 import com.cliffracertech.soundaura.ui.tweenDuration
 
 enum class ExpandableButtonState {
-    Visible, Expanded, Hidden;
+    Collapsed, Expanded, Hidden;
 
-    val isVisible get() = this == Visible
+    val isCollapsed get() = this == Collapsed
     val isExpanded get() = this == Expanded
     val isHidden get() = this == Hidden
 
-    val toggledExpansion get() = if (isVisible) Expanded
-                                 else           Visible
+    val toggledExpansion get() = if (isCollapsed) Expanded
+                                 else             Collapsed
 }
 
 @Composable fun ExpandableButton(

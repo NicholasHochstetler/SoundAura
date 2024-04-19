@@ -30,7 +30,7 @@ class NavigationState @Inject constructor() {
         private set
     var mediaControllerState by mutableStateOf(MediaControllerState.Visibility.Collapsed)
         private set
-    var addButtonState by mutableStateOf(ExpandableButtonState.Visible)
+    var addButtonState by mutableStateOf(ExpandableButtonState.Collapsed)
         private set
 
     fun showAppSettings() {
@@ -42,21 +42,21 @@ class NavigationState @Inject constructor() {
     fun hideAppSettings() {
         showingAppSettings = false
         mediaControllerState = MediaControllerState.Visibility.Collapsed
-        addButtonState = ExpandableButtonState.Visible
+        addButtonState = ExpandableButtonState.Collapsed
     }
 
     fun showPresetSelector() {
         if (showingAppSettings)
             return
         mediaControllerState = MediaControllerState.Visibility.Expanded
-        addButtonState = ExpandableButtonState.Visible
+        addButtonState = ExpandableButtonState.Collapsed
     }
 
     fun hidePresetSelector() {
         if (showingAppSettings)
             return
         mediaControllerState = MediaControllerState.Visibility.Collapsed
-        addButtonState = ExpandableButtonState.Visible
+        addButtonState = ExpandableButtonState.Collapsed
     }
 
     fun toggleAddButtonExpandedState() {
@@ -70,7 +70,7 @@ class NavigationState @Inject constructor() {
         if (showingAppSettings)
             return
         mediaControllerState = MediaControllerState.Visibility.Collapsed
-        addButtonState = ExpandableButtonState.Visible
+        addButtonState = ExpandableButtonState.Collapsed
     }
 
     fun onBackButtonClick(): Boolean = when {

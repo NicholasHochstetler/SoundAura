@@ -67,6 +67,7 @@ fun GradientToolBar(
         .only(WindowInsetsSides.Start + WindowInsetsSides.End)
     Row(modifier = modifier
             .fillMaxWidth()
+            .background(MaterialTheme.colors.background)
             .windowInsetsPadding(sideNavigationInsets)
             .background(gradient)
             .statusBarsPadding()

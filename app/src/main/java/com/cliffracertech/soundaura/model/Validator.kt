@@ -6,7 +6,6 @@ package com.cliffracertech.soundaura.model
 
 import androidx.annotation.StringRes
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
@@ -111,16 +110,21 @@ class Validator <T>(
     }
 }
 
+/** Add [key] to the set if [condition] is true, or remove it if it is false. */
+fun <T> MutableSet<T>.addOrRemoveIf(condition: Boolean, key: T) {
+    if (condition) add(key)
+    else           remove(key)
+}
+
 /**
  * A validator for a list of values, all of which must be individually valid.
  *
  * ListValidator can be used to validate a list of generic non-null values and
  * return a message explaining why one or more of the values is not valid if
  * necessary. The property [values] will initially be equal to the constructor
- * provided [values]. The [errors] property is a same-sized list of [Boolean]
- * values that indicates whether each corresponding [values] element is valid.
- * The property [allowDuplicates] can be used to mark all duplicate values as
- * being errors.
+ * provided [values]. The [errorIndices] property is a [Set] of all indices of
+ * [values] that are invalid. The property [allowDuplicates] can be used to
+ * mark all duplicate values as being errors.
  *
  * [setValue] should be called to change the proposed value for a particular
  * item, and will also mark the value at that index as having an error if the
@@ -146,40 +150,14 @@ abstract class ListValidator <T>(
     private val _values = values.toMutableStateList()
     val values get() = _values as List<T>
 
-    private var errorCount by mutableIntStateOf(0)
-    private val _errors = List(values.size) { false }.toMutableStateList()
-    val errors get() = _errors as List<Boolean>
+    var errorIndices by mutableStateOf(emptySet<Int>())
+        private set
+
+    val message get() = if (errorIndices.isEmpty())
+                            null
+                        else errorMessage
 
     private val mutex = Mutex(false)
-
-    init {
-        coroutineScope.launch {
-            mutex.withLock {
-                for (i in _errors.indices) {
-                    // If there is already an error at an index, then
-                    // it must be a duplicate of an earlier value.
-                    if (_errors[i]) continue
-
-                    val hasOtherError = isInvalid(values[i])
-                    val hasDuplicateError =
-                        if (allowDuplicates || i == _errors.lastIndex)
-                            false
-                        else run {
-                            var duplicateCount = 0
-                            for (j in i + 1..values.lastIndex)
-                                if (values[j] == values[i]) {
-                                    duplicateCount++
-                                    _errors[j] = true
-                                }
-                            duplicateCount > 0
-                        }
-                    if (hasDuplicateError || hasOtherError)
-                        _errors[i] = true
-                }
-                errorCount = _errors.count { it }
-            }
-        }
-    }
 
     protected abstract fun isInvalid(value: T): Boolean
     protected abstract val errorMessage: Validator.Message.Error
@@ -191,62 +169,57 @@ abstract class ListValidator <T>(
 
         coroutineScope.launch {
             mutex.withLock {
+                val newErrorIndices = errorIndices.toMutableSet()
                 _values[index] = newValue
+                newErrorIndices.addOrRemoveIf(isInvalid(newValue), index)
 
-                val hadError = _errors[index]
-                val hasError = isInvalid(newValue)
-                if (hasError && !hadError)      errorCount++
-                else if (hadError && !hasError) errorCount--
-                _errors[index] = hasError
-
-                if (allowDuplicates) return@withLock
-                values.forEachIndexed { i, value -> when {
-                    value == newValue && i != index -> {
+                if (!allowDuplicates) values.forEachIndexed { i, value ->
+                    if (value == newValue && i != index) {
                         // If there is a duplicate we set the value being
                         // set and the duplicate value as having an error
-                        if (!_errors[i])     errorCount++
-                        if (!_errors[index]) errorCount++
-                        _errors[i] = true
-                        _errors[index] = true
-                    } value == oldValue -> {
+                        newErrorIndices.add(i)
+                        newErrorIndices.add(index)
+                    } else if (value == oldValue) {
                         // We have to recheck all values that are equal to oldValue
                         // in case they were marked as having errors only because
                         // they were duplicate values (which will not be the case
                         // now that values[index] has been changed).
-                        val hasDuplicateError = isInvalid(values[i])
-                        val hadDuplicateError = _errors[i]
-                        if (hasDuplicateError && !hadDuplicateError)      errorCount++
-                        else if (hadDuplicateError && !hasDuplicateError) errorCount--
-                        _errors[i] = hasDuplicateError
+                        newErrorIndices.addOrRemoveIf(isInvalid(_values[i]), i)
                     }
-                }}
-            }
-        }
-    }
-
-    /** Force a recheck of all values. This can be useful if the
-     * conditions that are checked via [isInvalid] change. */
-    protected fun recheck() {
-        coroutineScope.launch {
-            mutex.withLock {
-                for (i in _values.indices) {
-                    val hadError = _errors[i]
-                    val hasError = isInvalid(_values[i])
-                    if (hasError == hadError) continue
-
-                    if (hasError) errorCount++
-                    else          errorCount--
-                    _errors[i] = hasError
                 }
-                // Since the values are being rechecked against possibly changed
-                // conditions via isInvalid, but aren't actually being changed,
-                // we do not need to check for duplicates again.
+                errorIndices = newErrorIndices
             }
         }
     }
 
-    val message get() = if (errorCount > 0) errorMessage
-                        else                null
+    /** Force a recheck of all values. */
+    protected suspend fun recheck() {
+        mutex.withLock {
+            val newErrorIndices = mutableSetOf<Int>()
+            for (i in values.indices) {
+                // If there is already an error at an index, then
+                // it must be a duplicate of an earlier value.
+                if (newErrorIndices.contains(i)) continue
+
+                val hasOtherError = isInvalid(values[i])
+                val hasDuplicateError =
+                    if (allowDuplicates || i == values.lastIndex) {
+                        false
+                    } else {
+                        var duplicateCount = 0
+                        for (j in i + 1..values.lastIndex)
+                            if (values[j] == values[i]) {
+                                duplicateCount++
+                                newErrorIndices.add(j)
+                            }
+                        duplicateCount > 0
+                    }
+                if (hasDuplicateError || hasOtherError)
+                    newErrorIndices.add(i)
+            }
+            errorIndices = newErrorIndices
+        }
+    }
 
     /** Return the validated list of values if they are all valid, or null if
      * one or more values are invalid. The default implementation only checks

@@ -100,10 +100,11 @@ class TrackNamesValidator(
 ) : ListValidator<String>(names, coroutineScope, allowDuplicates = false) {
 
     private var existingNames: Set<String>? = null
-    init { coroutineScope.launch {
-        existingNames = playlistDao.getPlaylistNames().toSet()
-        recheck()
-    }}
+    init {
+        coroutineScope.launch {
+            existingNames = playlistDao.getPlaylistNames().toSet()
+        }
+    }
 
     override fun isInvalid(value: String) =
         value.isBlank() || existingNames?.contains(value) == true
@@ -113,11 +114,21 @@ class TrackNamesValidator(
 
     override suspend fun validate(): List<String>? {
         val existingNames = playlistDao.getPlaylistNames().toSet()
-        return when {
+        val validatedNames =  when {
             values.intersect(existingNames).isNotEmpty() -> null
             values.containsBlanks() -> null
             else -> super.validate()
         }
+        if (validatedNames == null && errorIndices.isEmpty())
+            // The initial values of the list are not checked to prevent an error
+            // message from appearing immediately when the dialog is shown if some
+            // of the initial values are invalid. If some of the values are here
+            // found to be invalid and errorIndices is empty, then a full recheck
+            // here will populate errorIndices to the correct value and update
+            // error message accordingly so that the reason for the failed
+            // validation is public.
+            recheck()
+        return validatedNames
     }
 
     /** Return whether the list contains any strings that are blank

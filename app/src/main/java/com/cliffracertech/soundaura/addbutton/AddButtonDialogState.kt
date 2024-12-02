@@ -117,10 +117,10 @@ sealed class AddButtonDialogState(
      * Text fields for each track are being presented to the user to allow them
      * to name each added track. The property [names] should be used as the
      * list of current names to display in each text field. The property
-     * [errors] is a [List] of [Boolean] values, each value of which represents
-     * whether the same-indexed name in [names] is invalid. [message] updates
-     * with the most recent [Validator.Message] concerning the input names.
-     * Changed within any of the text fields should be connected to [onNameChange].
+     * [errorIndices] is a [Set]`<Int>` that contains the indices of invalid names.
+     * [message] updates with the most recent [Validator.Message] concerning the
+     * input names. Changes within any of the text fields should be connected to
+     * [onNameChange].
      *
      * @param onBackClick The callback that is invoked when the dialog's back button is clicked
      * @param validator The [TrackNamesValidator] instance that will be used
@@ -157,7 +157,7 @@ sealed class AddButtonDialogState(
                 }))
 
         val names by validator::values
-        val errors by validator::errors
+        val errorIndices by validator::errorIndices
         val message by validator::message
         val onNameChange = validator::setValue
     }

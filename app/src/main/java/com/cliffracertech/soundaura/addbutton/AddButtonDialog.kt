@@ -79,7 +79,7 @@ import com.cliffracertech.soundaura.ui.minTouchTargetSize
  * @param onFilesSelected The callback that will be invoked when one
  *     or more files are picked, represented in the [List] argument
  */
-@Composable fun SystemFileChooser(
+@Composable private fun SystemFileChooser(
     fileTypeArgs: Array<String> = arrayOf("audio/*", "application/ogg"),
     onFilesSelected: (List<Uri>) -> Unit,
 ) {
@@ -103,18 +103,13 @@ import com.cliffracertech.soundaura.ui.minTouchTargetSize
     AnimatedValidatorMessage(state.message)
 }
 
-/** Show a add button related dialog to the user. [AddButtonDialogState]s
- * that are related (e.g. [AddButtonDialogState.NamePlaylist] and
- * [AddButtonDialogState.PlaylistOptions]) will be animated between within
- * the same dialog window. */
-@Composable fun AddButtonDialogShower(state: AddButtonDialogState) {
-    if (state is AddButtonDialogState.SelectingFiles) {
-        SystemFileChooser { uris ->
-            if (uris.isEmpty())
-                state.onDismissRequest()
-            else state.onFilesSelected(uris)
-        }
-    } else SoundAuraDialog(
+/** Show the add button related dialog to the user inside an instance of
+ * [SoundAuraDialog]. Nothing will be shown if the value of [state] is one of
+ * [AddButtonDialogState]'s values that are not displayed in an instance of
+ * [SoundAuraDialog] (generally ones that are shown as Android system dialogs
+ * instead, e.g. a permission dialog).*/
+@Composable private fun AddButtonSoundAuraDialogShower(state: AddButtonDialogState) =
+    SoundAuraDialog(
         width = DialogWidth.MatchToScreenSize(WindowInsets.ime),
         title = stringResource(state.titleResId),
         onDismissRequest = state.onDismissRequest,
@@ -143,18 +138,21 @@ import com.cliffracertech.soundaura.ui.minTouchTargetSize
                 } is AddButtonDialogState.NamePreset -> {
                     NamingTextField(state, backgroundModifier)
                 } is AddButtonDialogState.NameTracks -> {
-                    // We have to restrict the LazyColumn's height to prevent
-                    // a crash due to nested infinite height scrollables
-                    val maxHeight = LocalConfiguration.current.screenHeightDp.dp
-                    Column(backgroundModifier.heightIn(max = maxHeight)) {
-                        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(backgroundModifier) {
+                        // We have to restrict the LazyColumn's height to prevent
+                        // a crash due to nested infinite height scrollables
+                        val maxHeight = (LocalConfiguration.current.screenHeightDp * 2 / 3).dp
+                        LazyColumn(
+                            modifier = Modifier.heightIn(max = maxHeight),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             items(state.names.size) { index ->
                                 TextField(
                                     value = state.names[index],
                                     onValueChange = { state.onNameChange(index, it) },
                                     textStyle = MaterialTheme.typography.body1,
                                     singleLine = true,
-                                    isError = state.errors[index],
+                                    isError = state.errorIndices.contains(index),
                                     modifier = Modifier.fillMaxWidth())
                             }
                         }
@@ -162,7 +160,7 @@ import com.cliffracertech.soundaura.ui.minTouchTargetSize
                     }
                 } is AddButtonDialogState.NamePlaylist -> {
                     NamingTextField(state, backgroundModifier)
-                } is AddButtonDialogState.PlaylistOptions-> {
+                } is AddButtonDialogState.PlaylistOptions -> {
                     // PlaylistOptions already has its own horizontal padding, so we avoid
                     // using backgroundModifier here to prevent doubling up on the padding
                     Column(Modifier.background(MaterialTheme.colors.surface)) {
@@ -176,4 +174,16 @@ import com.cliffracertech.soundaura.ui.minTouchTargetSize
             }
         }
     }
+
+/** Show an add button related dialog to the user. */
+@Composable fun AddButtonDialogShower(state: AddButtonDialogState) {
+    when (state) {
+        is AddButtonDialogState.SelectingFiles -> {
+            SystemFileChooser { uris ->
+                if (uris.isEmpty())
+                    state.onDismissRequest()
+                else state.onFilesSelected(uris)
+            }
+        } else -> AddButtonSoundAuraDialogShower(state)
+   }
 }

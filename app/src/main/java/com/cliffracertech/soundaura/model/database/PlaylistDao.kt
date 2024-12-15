@@ -186,9 +186,9 @@ private const val librarySelectWithFilter =
     abstract suspend fun getUniqueUrisNotIn(exceptions: List<Uri>, playlistId: Long): List<Uri>
 
     @RawQuery
-    protected abstract suspend fun filterNewTracks(query: SupportSQLiteQuery): List<Uri>
+    protected abstract suspend fun filterNewUris(query: SupportSQLiteQuery): List<Uri>
 
-    suspend fun filterNewTracks(tracks: List<Uri>): List<Uri> {
+    suspend fun filterNewUris(tracks: List<Uri>): List<Uri> {
         // The following query requires parentheses around each argument. This
         // is not supported by Room, so the query must be made manually.
         val query = StringBuilder()
@@ -202,7 +202,7 @@ private const val librarySelectWithFilter =
             .append("WHERE track.uri IS NULL;")
             .toString()
         val args = Array(tracks.size) { tracks[it].toString() }
-        return filterNewTracks(SimpleSQLiteQuery(query, args))
+        return filterNewUris(SimpleSQLiteQuery(query, args))
     }
 
     /** Return whether or not a [Playlist] whose name matches [name] exists. */

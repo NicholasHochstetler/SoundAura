@@ -68,7 +68,7 @@ class ModifyLibraryUseCase(
         tracks: List<Track>
     ) {
         val uris = tracks.map(Track::uri)
-        val newUris = dao.filterNewTracks(uris)
+        val newUris = dao.filterNewUris(uris)
         val removableUris = dao.getUniqueUrisNotIn(uris, playlistId)
         val postOpPermissionAllowance = permissionHandler.getRemainingAllowance() +
                                         removableUris.size - newUris.size

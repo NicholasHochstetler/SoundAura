@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
+import androidx.compose.material.SnackbarDuration
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
 import androidx.compose.material.icons.Icons
@@ -30,8 +31,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.cliffracertech.soundaura.R
 import com.cliffracertech.soundaura.dialog.ValidatedNamingState
 import com.cliffracertech.soundaura.model.AddToLibraryUseCase
+import com.cliffracertech.soundaura.model.MessageHandler
 import com.cliffracertech.soundaura.model.NavigationState
 import com.cliffracertech.soundaura.model.ReadModifyPresetsUseCase
+import com.cliffracertech.soundaura.model.StringResource
+import com.cliffracertech.soundaura.model.database.Track
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -59,16 +63,18 @@ fun Uri.getDisplayName(context: Context) =
 class AddButtonViewModel(
     private val context: Context,
     coroutineScope: CoroutineScope?,
+    private val messageHandler: MessageHandler,
     private val navigationState: NavigationState,
     private val readModifyPresetsUseCase: ReadModifyPresetsUseCase,
     private val addToLibrary: AddToLibraryUseCase,
 ): ViewModel() {
     @Inject constructor(
         @ApplicationContext context: Context,
+        messageHandler: MessageHandler,
         navigationState: NavigationState,
         readModifyPresets: ReadModifyPresetsUseCase,
         addToLibrary: AddToLibraryUseCase
-    ): this(context, null, navigationState,
+    ): this(context, null, messageHandler, navigationState,
             readModifyPresets, addToLibrary)
 
     private val scope = coroutineScope ?: viewModelScope
@@ -94,8 +100,7 @@ class AddButtonViewModel(
         navigationState.mediaControllerState.isExpanded -> {
             scope.launch {
                 val namingState = readModifyPresetsUseCase.newPresetNamingState(
-                    scope = scope,
-                    onAddPreset = ::hideDialog)
+                    scope = scope, onAddPreset = ::hideDialog)
                 if (namingState != null)
                     dialogState = AddButtonDialogState.NamePreset(
                         onDismissRequest = ::hideDialog,
@@ -144,11 +149,7 @@ class AddButtonViewModel(
                 scope, trackUris.map { it.getDisplayName(context) }),
             coroutineScope = scope,
             onFinish = { trackNames ->
-                hideDialog()
-                scope.launch {
-                    assert(trackUris.size == trackNames.size)
-                    addToLibrary.addSingleTrackPlaylists(trackNames, trackUris)
-                }
+                addTracks(trackUris, trackNames)
             })
     }
 
@@ -180,14 +181,85 @@ class AddButtonViewModel(
                     cameFromPlaylistOrTracksQuery = false,
                     playlistName = playlistName)
             }, trackUris = uris,
-            onFinish = { shuffle, newTracks ->
-                hideDialog()
-                scope.launch {
-                    addToLibrary.addPlaylist(playlistName, shuffle, newTracks)
-                }
+            onFinish = { shuffle, tracks ->
+                addPlaylist(playlistName, uris, shuffle, tracks)
             })
     }
 
+    private fun showStoragePermissionExplanation(
+        addingPlaylist: Boolean,
+        permissionsUsed: Int,
+        permissionsAllowed: Int,
+        onResult: (permissionGranted: Boolean) -> Unit
+    ) {
+        dialogState = AddButtonDialogState.RequestStoragePermissionExplanation(
+            onDismissRequest = ::hideDialog,
+            permissionsUsed = permissionsUsed,
+            permissionsAllowed = permissionsAllowed,
+            addingPlaylist = addingPlaylist,
+            onOkClick = { showStoragePermissionRequest(onResult) })
+    }
+
+    private fun showStoragePermissionRequest(
+        onResult: (permissionGranted: Boolean) -> Unit
+    ) {
+        dialogState = AddButtonDialogState.RequestStoragePermission(
+            onDismissRequest = ::hideDialog,
+            onResult = onResult)
+    }
+
+    private fun addTracks(
+        trackUris: List<Uri>,
+        trackNames: List<String>
+    ) {
+        scope.launch {
+            assert(trackUris.size == trackNames.size)
+            when (val result = addToLibrary.addSingleTrackPlaylists(trackNames, trackUris)) {
+                is AddToLibraryUseCase.Result.Success ->
+                    hideDialog()
+                is AddToLibraryUseCase.Result.Failure ->
+                    showStoragePermissionExplanation(
+                        addingPlaylist = false,
+                        permissionsUsed = result.permissionsUsed,
+                        permissionsAllowed = result.permissionAllowance,
+                    ) { permissionGranted: Boolean ->
+                        if (permissionGranted) scope.launch {
+                            addToLibrary.addSingleTrackPlaylists(trackNames, trackUris)
+                        } else messageHandler.postMessage(
+                            stringResource = StringResource(R.string.cant_add_tracks_warning),
+                            duration = SnackbarDuration.Long)
+                        hideDialog()
+                    }
+            }
+        }
+    }
+
+    private fun addPlaylist(
+        playlistName: String,
+        uris: List<Uri>,
+        shuffle: Boolean,
+        tracks: List<Track>,
+    ) {
+        scope.launch {
+            when (val result = addToLibrary.addPlaylist(playlistName, shuffle, tracks, uris)) {
+                is AddToLibraryUseCase.Result.Success ->
+                    hideDialog()
+                is AddToLibraryUseCase.Result.Failure ->
+                    showStoragePermissionExplanation(
+                        addingPlaylist = true,
+                        permissionsUsed = result.permissionsUsed,
+                        permissionsAllowed = result.permissionAllowance,
+                    ) { permissionGranted ->
+                        if (permissionGranted) scope.launch {
+                            addToLibrary.addPlaylist(playlistName, shuffle, tracks)
+                        } else messageHandler.postMessage(
+                            R.string.cant_add_playlist_warning,
+                            SnackbarDuration.Long)
+                        hideDialog()
+                    }
+            }
+        }
+    }
 }
 
 /**

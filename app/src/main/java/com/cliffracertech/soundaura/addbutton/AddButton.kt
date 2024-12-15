@@ -6,16 +6,20 @@ package com.cliffracertech.soundaura.addbutton
 import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Uri
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material.ButtonDefaults
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.material.FloatingActionButton
+import androidx.compose.material.FloatingActionButtonDefaults
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.SnackbarDuration
-import androidx.compose.material.Text
-import androidx.compose.material.TextButton
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AudioFile
-import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,6 +40,7 @@ import com.cliffracertech.soundaura.model.NavigationState
 import com.cliffracertech.soundaura.model.ReadModifyPresetsUseCase
 import com.cliffracertech.soundaura.model.StringResource
 import com.cliffracertech.soundaura.model.database.Track
+import com.cliffracertech.soundaura.ui.tweenDuration
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -79,9 +84,6 @@ class AddButtonViewModel(
 
     private val scope = coroutineScope ?: viewModelScope
 
-    val state get() = navigationState.addButtonState
-    val onOverlayClick = navigationState::collapseAddButton
-
     var dialogState by mutableStateOf<AddButtonDialogState?>(null)
         private set
 
@@ -106,25 +108,18 @@ class AddButtonViewModel(
                         onDismissRequest = ::hideDialog,
                         namingState = namingState)
             }
-        } else -> navigationState.toggleAddButtonExpandedState()
+        } else -> {
+            dialogState = AddButtonDialogState.SelectingFiles(
+                onDismissRequest = ::hideDialog,
+                onFilesSelected = { chosenUris ->
+                    // If uris.size == 1, we can skip straight to the name
+                    // track dialog step to skip the user needing to choose
+                    if (chosenUris.size > 1)
+                        showAddIndividuallyOrAsPlaylistQueryStep(chosenUris)
+                    else showNameTracksStep(chosenUris)
+                })
+        }
     }}
-
-    val onAddFilesClick = {
-        onOverlayClick()
-        dialogState = AddButtonDialogState.SelectingFiles(
-            onDismissRequest = ::hideDialog,
-            onFilesSelected = { chosenUris ->
-                // If uris.size == 1, we can skip straight to the name
-                // track dialog step to skip the user needing to choose
-                if (chosenUris.size > 1)
-                    showAddIndividuallyOrAsPlaylistQueryStep(chosenUris)
-                else showNameTracksStep(chosenUris)
-            })
-    }
-
-    val onAddDirectoryClick = {
-        onOverlayClick()
-    }
 
     private fun showAddIndividuallyOrAsPlaylistQueryStep(chosenUris: List<Uri>) {
         dialogState = AddButtonDialogState.AddIndividuallyOrAsPlaylistQuery(
@@ -267,50 +262,40 @@ class AddButtonViewModel(
  * an instance of [AddButtonViewModel].
  *
  * @param backgroundColor The color to use for the button's background
+ * @param visible Whether the button is visible
  * @param modifier The [Modifier] to use for the button
  */
 @Composable fun AddButton(
     backgroundColor: Color,
+    visible: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val viewModel: AddButtonViewModel = viewModel()
 
-    val filledButtonColors = ButtonDefaults.buttonColors(
-        backgroundColor = backgroundColor,
-        contentColor = MaterialTheme.colors.onSecondary)
-    ExpandableButton(
-        state = viewModel.state,
-        onClick = viewModel.onClick,
-        onClickDescriptionProvider = {
-            viewModel.onClickContentDescriptionResId
-                ?.let { stringResource(it) }
-        }, onOverlayClick = viewModel.onOverlayClick,
+    val enterSpec = tween<Float>(
+        durationMillis = tweenDuration,
+        easing = LinearOutSlowInEasing)
+    val exitSpec = tween<Float>(
+        durationMillis = tweenDuration,
+        delayMillis = tweenDuration / 3,
+        easing = LinearOutSlowInEasing)
+    AnimatedVisibility(
+        visible = visible,
         modifier = modifier,
-        backgroundColor = backgroundColor,
-        expandedContent = listOf(
-            { modifier ->
-                TextButton(
-                    onClick = viewModel.onAddDirectoryClick,
-                    modifier = modifier,
-                    shape = MaterialTheme.shapes.medium,
-                    colors = filledButtonColors
-                ) {
-                    Text("Directory")
-                    Icon(Icons.Default.Folder, null,
-                        Modifier.padding(start = 4.dp, top = 4.dp, bottom = 4.dp))
-                }
-            }, { modifier ->
-                TextButton(
-                    onClick = viewModel.onAddFilesClick,
-                    modifier = modifier,
-                    shape = MaterialTheme.shapes.medium,
-                    colors = filledButtonColors
-                ) {
-                    Text("File(s)")
-                    Icon(Icons.Default.AudioFile, null,
-                        Modifier.padding(start = 4.dp, top = 4.dp, bottom = 4.dp))
-                }
-            }))
+        enter = fadeIn(enterSpec) + scaleIn(enterSpec, initialScale = 0.8f),
+        exit = fadeOut(exitSpec) + scaleOut(exitSpec, targetScale = 0.8f),
+    ) {
+        FloatingActionButton(
+            onClick = viewModel.onClick,
+            backgroundColor = backgroundColor,
+            elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp)
+        ) {
+            Icon(imageVector = Icons.Default.Add,
+                contentDescription = viewModel.onClickContentDescriptionResId?.let {
+                    stringResource(it)
+                }, tint = MaterialTheme.colors.onPrimary)
+        }
+    }
 
     viewModel.dialogState?.let { AddButtonDialogShower(it) }
 }

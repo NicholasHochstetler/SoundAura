@@ -191,7 +191,9 @@ class MainActivity : ComponentActivity() {
 
                 AddTrackButton(
                     widthIsConstrained = widthIsConstrained,
-                    modifier = Modifier.padding(floatingButtonPadding))
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(floatingButtonPadding))
 
                 SnackbarHost(
                     hostState = snackbarHostState,
@@ -285,6 +287,7 @@ class MainActivity : ComponentActivity() {
 
         AddButton(
             backgroundColor = MaterialTheme.colors.secondaryVariant,
+            visible = !viewModel.showingAppSettings,
             modifier = modifier.graphicsLayer {
                 translationX = addButtonXDpOffset.toPx()
                 translationY = addButtonYDpOffset.toPx()

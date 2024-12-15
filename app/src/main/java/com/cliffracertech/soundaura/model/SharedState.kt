@@ -10,7 +10,6 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.cliffracertech.soundaura.addbutton.ExpandableButtonState
 import com.cliffracertech.soundaura.edit
 import com.cliffracertech.soundaura.mediacontroller.MediaControllerState
 import com.cliffracertech.soundaura.model.database.Preset
@@ -30,47 +29,27 @@ class NavigationState @Inject constructor() {
         private set
     var mediaControllerState by mutableStateOf(MediaControllerState.Visibility.Collapsed)
         private set
-    var addButtonState by mutableStateOf(ExpandableButtonState.Collapsed)
-        private set
 
     fun showAppSettings() {
         showingAppSettings = true
         mediaControllerState = MediaControllerState.Visibility.Hidden
-        addButtonState = ExpandableButtonState.Hidden
     }
 
     fun hideAppSettings() {
         showingAppSettings = false
         mediaControllerState = MediaControllerState.Visibility.Collapsed
-        addButtonState = ExpandableButtonState.Collapsed
     }
 
     fun showPresetSelector() {
         if (showingAppSettings)
             return
         mediaControllerState = MediaControllerState.Visibility.Expanded
-        addButtonState = ExpandableButtonState.Collapsed
     }
 
     fun hidePresetSelector() {
         if (showingAppSettings)
             return
         mediaControllerState = MediaControllerState.Visibility.Collapsed
-        addButtonState = ExpandableButtonState.Collapsed
-    }
-
-    fun toggleAddButtonExpandedState() {
-        if (showingAppSettings)
-            return
-        mediaControllerState = MediaControllerState.Visibility.Collapsed
-        addButtonState = addButtonState.toggledExpansion
-    }
-
-    fun collapseAddButton() {
-        if (showingAppSettings)
-            return
-        mediaControllerState = MediaControllerState.Visibility.Collapsed
-        addButtonState = ExpandableButtonState.Collapsed
     }
 
     fun onBackButtonClick(): Boolean = when {
@@ -78,8 +57,6 @@ class NavigationState @Inject constructor() {
             hideAppSettings(); true
         } mediaControllerState.isExpanded -> {
             hidePresetSelector(); true
-        } addButtonState.isExpanded -> {
-            collapseAddButton(); true
         } else -> false
     }
 }

@@ -72,12 +72,12 @@ import com.cliffracertech.soundaura.rememberMutableStateOf
 import kotlinx.coroutines.delay
 
 internal const val tweenDuration = 250// * 4
-internal const val springStiffness = 700f// / 30f
+internal const val springStiffness = 700f // 30f
 
 fun <T> defaultSpring() = spring<T>(stiffness = springStiffness)
 
 fun Modifier.minTouchTargetSize() =
-    sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+    this.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
 
 /**
  * An [AnimatedContent] with predefined slide left/right transitions.

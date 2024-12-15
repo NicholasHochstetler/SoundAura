@@ -4,7 +4,6 @@
 package com.cliffracertech.soundaura.model
 
 import android.net.Uri
-import com.cliffracertech.soundaura.R
 import com.cliffracertech.soundaura.model.database.Playlist
 import com.cliffracertech.soundaura.model.database.PlaylistDao
 import com.cliffracertech.soundaura.model.database.Track
@@ -17,43 +16,53 @@ import javax.inject.Inject
  * or multi-track) to the app's library of playlists. */
 class AddToLibraryUseCase(
     private val permissionHandler: UriPermissionHandler,
-    private val messageHandler: MessageHandler,
     private val dao: PlaylistDao,
 ) {
     @Inject constructor(
         permissionHandler: AndroidUriPermissionHandler,
-        messageHandler: MessageHandler,
         dao: PlaylistDao
-    ): this(permissionHandler as UriPermissionHandler, messageHandler, dao)
+    ): this(permissionHandler as UriPermissionHandler, dao)
 
     fun trackNamesValidator(
         scope: CoroutineScope,
         initialTrackNames: List<String>
     ) = TrackNamesValidator(dao, scope, initialTrackNames)
 
+    /** The two subtypes, [Success] and [Failure], represent the possible
+     * results for calls to [addSingleTrackPlaylists] or [addPlaylist]. */
+    sealed class Result {
+        /** The operation succeeded. */
+        data object Success: Result()
+
+        /** The operation failed. The properties [permissionsUsed] and
+         * [permissionAllowance] can help explain the reason for the failure. */
+        data class Failure(
+            val permissionsUsed: Int,
+            val permissionAllowance: Int
+        ): Result()
+    }
+
     /**
      * Attempt to add multiple single-track playlists. Each value in [names]
      * will be used as a name for a new [Playlist], while the [Uri] with the
      * same index in [uris] will be used as that [Playlist]'s single track.
-     * This operation can fail for all or some portion of the playlists if the
-     * attempt to acquire persisted permissions for one or more of the URIs fail.
+     *
+     * @return The [Result] of the operation
      */
-    suspend fun addSingleTrackPlaylists(names: List<String>, uris: List<Uri>) {
+    suspend fun addSingleTrackPlaylists(
+        names: List<String>,
+        uris: List<Uri>,
+    ): Result {
         assert(names.size == uris.size)
-        val newTracks = dao.filterNewTracks(uris)
-        val rejectedUris = permissionHandler
-            .acquirePermissionsFor(newTracks, allowPartial = true)
+        val newUris = dao.filterNewUris(uris)
+        val succeeded = permissionHandler.acquirePermissionsFor(newUris)
 
-        if (rejectedUris.size < uris.size)
-            dao.insertSingleTrackPlaylists(
-                names = names.subList(0, uris.size - rejectedUris.size),
-                uris = uris.subList(0, uris.size - rejectedUris.size))
-
-        if (rejectedUris.isNotEmpty())
-            messageHandler.postMessage(StringResource(
-                R.string.cant_add_all_tracks_warning,
-                rejectedUris.size,
-                permissionHandler.totalAllowance))
+        return if (succeeded) {
+            dao.insertSingleTrackPlaylists(names, uris, newUris)
+            Result.Success
+        } else Result.Failure(
+            permissionsUsed = permissionHandler.usedAllowance,
+            permissionAllowance = permissionHandler.totalAllowance)
     }
 
     fun newPlaylistNameValidator(
@@ -62,26 +71,28 @@ class AddToLibraryUseCase(
     ) = newPlaylistNameValidator(dao, scope, initialName)
 
     /**
-     * Attempt to add a playlist with the given [name] and [shuffle]
-     * values and with a track list equal to [tracks]. This operation
-     * can fail if the attempt to acquire persisted permissions for
-     * all of the new playlist's tracks fails.
+     * Attempt to add a playlist with the given [name] and [shuffle] values and
+     * with a track list equal to [tracks]. If non enough file permissions are
+     * available to add all of the new playlist's tracks, the operation will
+     * fail and the number of extra permissions that would be needed to succeed
+     * will be returned.
      *
-     * @return Whether or not the operation succeeded
+     * @return The [Result] of the operation
      */
     suspend fun addPlaylist(
         name: String,
         shuffle: Boolean,
-        tracks: List<Track>
-    ) {
-        val trackUris = tracks.map(Track::uri)
-        val newUris = dao.filterNewTracks(trackUris)
-        val rejectedTracks = permissionHandler.acquirePermissionsFor(
-            uris = newUris, allowPartial = false)
-        if (rejectedTracks.isEmpty())
-            dao.insertPlaylist(name, shuffle, tracks)
-        else messageHandler.postMessage(StringResource(
-            R.string.cant_add_playlist_warning,
-            permissionHandler.totalAllowance))
+        tracks: List<Track>,
+        trackUris: List<Uri> = tracks.map(Track::uri)
+    ): Result {
+        val newUris = dao.filterNewUris(trackUris)
+        val succeeded = permissionHandler.acquirePermissionsFor(newUris)
+
+        return if (succeeded) {
+            dao.insertPlaylist(name, shuffle, tracks, newUris)
+            Result.Success
+        } else Result.Failure(
+            permissionsUsed = permissionHandler.usedAllowance,
+            permissionAllowance = permissionHandler.totalAllowance)
     }
 }

@@ -3,7 +3,9 @@
  * the project's root directory to see the full license. */
 package com.cliffracertech.soundaura.addbutton
 
+import android.Manifest
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -29,7 +31,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.cliffracertech.soundaura.dialog.AnimatedValidatorMessage
 import com.cliffracertech.soundaura.dialog.DialogWidth
@@ -79,7 +83,7 @@ import com.cliffracertech.soundaura.ui.minTouchTargetSize
  * @param onFilesSelected The callback that will be invoked when one
  *     or more files are picked, represented in the [List] argument
  */
-@Composable private fun SystemFileChooser(
+@Composable fun SystemFileChooser(
     fileTypeArgs: Array<String> = arrayOf("audio/*", "application/ogg"),
     onFilesSelected: (List<Uri>) -> Unit,
 ) {
@@ -87,6 +91,16 @@ import com.cliffracertech.soundaura.ui.minTouchTargetSize
         contract = ActivityResultContracts.OpenMultipleDocuments(),
         onResult = onFilesSelected)
     LaunchedEffect(Unit) { launcher.launch(fileTypeArgs) }
+}
+
+@Composable private fun AccessAudioFilesPermissionRequester(onPermissionGranted: (Boolean) -> Unit) {
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = onPermissionGranted)
+    val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+                         Manifest.permission.READ_MEDIA_AUDIO
+                     else Manifest.permission.READ_EXTERNAL_STORAGE
+    LaunchedEffect(Unit) { launcher.launch(permission)}
 }
 
 @Composable private fun NamingTextField(
@@ -126,6 +140,7 @@ import com.cliffracertech.soundaura.ui.minTouchTargetSize
                 .padding(horizontal = 16.dp)
             when (state) {
                 is AddButtonDialogState.SelectingFiles -> {}
+                is AddButtonDialogState.RequestStoragePermission -> {}
                 is AddButtonDialogState.AddIndividuallyOrAsPlaylistQuery -> {
                     Box(modifier = backgroundModifier.padding(vertical = 16.dp),
                         // The vertical padding is set to match the TextField decoration box's
@@ -170,6 +185,12 @@ import com.cliffracertech.soundaura.ui.minTouchTargetSize
                             mutablePlaylist = state.mutablePlaylist,
                             onAddButtonClick = null)
                     }
+                } is AddButtonDialogState.RequestStoragePermissionExplanation -> {
+                    val context = LocalContext.current
+                    Box(modifier = backgroundModifier.padding(bottom = 8.dp)) {
+                        Text(state.text.resolve(context),
+                             textAlign = TextAlign.Justify)
+                    }
                 }
             }
         }
@@ -184,6 +205,8 @@ import com.cliffracertech.soundaura.ui.minTouchTargetSize
                     state.onDismissRequest()
                 else state.onFilesSelected(uris)
             }
+        } is AddButtonDialogState.RequestStoragePermission -> {
+            AccessAudioFilesPermissionRequester(state.onResult)
         } else -> AddButtonSoundAuraDialogShower(state)
    }
 }

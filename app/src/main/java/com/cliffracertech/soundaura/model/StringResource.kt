@@ -17,7 +17,8 @@ class StringResource(
     @Suppress("CanBePrimaryConstructorProperty")
     private val args = args
 
-    constructor(@StringRes stringResId: Int): this(null, stringResId)
+    constructor(@StringRes stringResId: Int):
+            this(null, stringResId)
     constructor(@StringRes stringResId: Int, stringVar: String):
             this(null, stringResId, stringVar)
     constructor(@StringRes stringResId: Int, intVar: Int):

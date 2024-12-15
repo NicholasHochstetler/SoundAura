@@ -12,6 +12,7 @@ import com.cliffracertech.soundaura.R
 import com.cliffracertech.soundaura.dialog.NamingState
 import com.cliffracertech.soundaura.dialog.ValidatedNamingState
 import com.cliffracertech.soundaura.library.MutablePlaylist
+import com.cliffracertech.soundaura.model.StringResource
 import com.cliffracertech.soundaura.model.Validator
 import com.cliffracertech.soundaura.model.database.Track
 import com.cliffracertech.soundaura.model.database.TrackNamesValidator
@@ -220,4 +221,32 @@ sealed class AddButtonDialogState(
                 onFinish(shuffleEnabled, mutablePlaylist.applyChanges())
             }))
     }
+
+    /** An explanation for why the storage permission is needed is being presented.
+     * The [text] [StringResource] property should be resolved and display to the user. */
+    class RequestStoragePermissionExplanation(
+        onDismissRequest: () -> Unit,
+        permissionsUsed: Int,
+        permissionsAllowed: Int,
+        addingPlaylist: Boolean,
+        onOkClick: () -> Unit
+    ): AddButtonDialogState(onDismissRequest) {
+        override val wasNavigatedForwardTo = true
+        override val titleResId = R.string.add_local_files_request_storage_permission_title
+        override val buttons = listOf(ButtonInfo(R.string.ok, onClick = onOkClick))
+
+        val text = StringResource(
+            string = null,
+            stringResId = if (addingPlaylist)
+                R.string.add_local_files_request_storage_permission_explanation_for_playlist
+            else R.string.add_local_files_request_storage_permission_explanation_for_tracks,
+            /*arg1 =*/permissionsUsed,
+            /*arg2 =*/permissionsAllowed)
+    }
+
+    /** The storage permission request is being presented. */
+    class RequestStoragePermission(
+        onDismissRequest: () -> Unit,
+        val onResult: (Boolean) -> Unit,
+    ): AddButtonDialogState(onDismissRequest)
 }

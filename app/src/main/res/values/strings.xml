@@ -74,23 +74,34 @@
     <string name="add_local_files_as_playlist_option">Playlist</string>
     <string name="add_local_files_as_tracks_dialog_title">Confirm track name(s)</string>
     <string name="add_local_files_as_playlist_dialog_title">Confirm playlist name</string>
+    <string name="add_local_files_request_storage_permission_title">Insufficient space</string>
+    <string name="add_local_files_request_storage_permission_explanation_for_tracks">
+        SoundAura has used %1$d of the %2$d file permissions Android allows for
+        apps without full storage access. The read audio files permission must
+        be granted in order to add all of the tracks.
+    </string>
+    <string name="add_local_files_request_storage_permission_explanation_for_playlist">
+        SoundAura has used %1$d of the %2$d file permissions Android allows for
+        apps without full storage access. The read audio files permission must
+        be granted in order to add the entire playlist.
+    </string>
 
     <string name="add_multiple_tracks_name_error_message">The tracks must have unique, non-blank names</string>
     <string name="name_dialog_blank_name_error_message">The name can not be blank</string>
     <string name="name_dialog_duplicate_name_error_message">The name is already in use</string>
 
-    <string name="cant_add_all_tracks_warning">
-        %1$d files could not be added because the app is at Android’s
-        file permission limit of %2$d. You must remove some tracks or
-        playlists in order to add any more.</string>
+    <string name="cant_add_tracks_warning">
+        The files could not be added because Android’s file permission
+        limit would be exceeded. Remove some tracks or playlists and try
+        again, or grant the app the read files permission.</string>
     <string name="cant_add_playlist_warning">
-        The playlist could not be added because the app is at Android’s
-        file permission limit of %1$d. You must remove some tracks or
-        playlists in order to add any more.</string>
+        The playlist could not be added because Android’s file permission
+        limit would be exceeded. Remove some tracks or playlists and try
+        again, or grant the app the read files permission.</string>
     <string name="cant_modify_playlist_tracks_warning">
-        The playlist’s track list could not be modified because the app is
-        at Android’s file permission limit of %1$d. You must remove some
-        tracks or playlists in order to add any more.
+        The playlist could not be modified because Android’s file permission
+        limit would be exceeded. Remove some tracks or playlists and try
+        again, or grant the app the read files permission.
     </string>
 
     <string name="configure_playlist_dialog_title">Configure playlist options</string>

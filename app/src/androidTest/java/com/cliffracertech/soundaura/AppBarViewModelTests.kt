@@ -76,9 +76,9 @@ class AppBarViewModelTests {
 
     @Test fun title_changes_when_showing_app_settings() {
         assertThat(instance.title.stringResId).isEqualTo(R.string.app_name)
-        navigationState.showingAppSettings = true
+        navigationState.showAppSettings()
         assertThat(instance.title.stringResId).isEqualTo(R.string.app_settings_description)
-        navigationState.showingAppSettings = false
+        navigationState.hideAppSettings()
         assertThat(instance.title.stringResId).isEqualTo(R.string.app_name)
     }
 

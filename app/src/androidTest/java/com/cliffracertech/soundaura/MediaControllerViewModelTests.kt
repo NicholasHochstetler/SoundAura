@@ -16,6 +16,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.cliffracertech.soundaura.mediacontroller.DialogType
+import com.cliffracertech.soundaura.mediacontroller.MediaControllerState
 import com.cliffracertech.soundaura.mediacontroller.MediaControllerViewModel
 import com.cliffracertech.soundaura.model.ActivePresetState
 import com.cliffracertech.soundaura.model.MessageHandler
@@ -164,9 +165,11 @@ class MediaControllerViewModelTests {
     }
 
     @Test fun clicking_active_preset_opens_preset_selector() {
-        assertThat(instance.state.showingPresetSelector).isFalse()
+        assertThat(instance.state.visibility)
+            .isEqualTo(MediaControllerState.Visibility.Collapsed)
         activePreset.onClick()
-        assertThat(instance.state.showingPresetSelector).isTrue()
+        assertThat(instance.state.visibility)
+            .isEqualTo(MediaControllerState.Visibility.Expanded)
     }
 
     @Test fun play_button_isPlaying_matches_underlying_state() = runTest {
@@ -341,11 +344,13 @@ class MediaControllerViewModelTests {
     @Test fun preset_selector_close_button_and_back_button_closes_selector() {
         activePreset.onClick()
         instance.state.onCloseButtonClick()
-        assertThat(instance.state.showingPresetSelector).isFalse()
+        assertThat(instance.state.visibility)
+            .isEqualTo(MediaControllerState.Visibility.Collapsed)
 
         activePreset.onClick()
         navigationState.onBackButtonClick()
-        assertThat(instance.state.showingPresetSelector).isFalse()
+        assertThat(instance.state.visibility)
+            .isEqualTo(MediaControllerState.Visibility.Collapsed)
     }
 
     @Test fun preset_list_matches_underlying_state() = runTest {
@@ -532,14 +537,16 @@ class MediaControllerViewModelTests {
         assertThat(activePreset.name).isEqualTo(testPresetNames[1])
         assertThat(getActivePlaylistIds()).containsExactly(
             testPlaylistIds[1], testPlaylistIds[2])
-        assertThat(instance.state.showingPresetSelector).isFalse()
+        assertThat(instance.state.visibility)
+            .isEqualTo(MediaControllerState.Visibility.Collapsed)
 
         activePreset.onClick()
         presetList.onClick(testPresetNames[0])
         waitUntil { activePreset.name != testPresetNames[1] }
         assertThat(activePreset.name).isEqualTo(testPresetNames[0])
         assertThat(getActivePlaylistIds()).containsExactly(testPlaylistIds[0])
-        assertThat(instance.state.showingPresetSelector).isFalse()
+        assertThat(instance.state.visibility)
+            .isEqualTo(MediaControllerState.Visibility.Collapsed)
     }
 
     @Test fun unsaved_changes_dialog_appearance() = runTest {
@@ -555,9 +562,11 @@ class MediaControllerViewModelTests {
         waitUntil { !activePreset.isModified } // should time out
         assertThat(instance.shownDialog).isInstanceOf(
             DialogType.PresetUnsavedChangesWarning::class)
-        assertThat(instance.state.showingPresetSelector).isTrue()
+        assertThat(instance.state.visibility)
+            .isEqualTo(MediaControllerState.Visibility.Expanded)
         assertThat(activePreset.isModified).isTrue()
-        assertThat(getActivePlaylistIds()).containsExactlyElementsIn(testPlaylistIds.subList(1, 4))
+        assertThat(getActivePlaylistIds())
+            .containsExactlyElementsIn(testPlaylistIds.subList(1, 4))
     }
 
     @Test fun unsaved_changes_dialog_dismissal() = runTest {
@@ -572,9 +581,11 @@ class MediaControllerViewModelTests {
         unsavedChangesWarningDialog.onDismissRequest()
         waitUntil { !activePreset.isModified } // should time out
         assertThat(instance.shownDialog).isNull()
-        assertThat(instance.state.showingPresetSelector).isTrue()
+        assertThat(instance.state.visibility)
+            .isEqualTo(MediaControllerState.Visibility.Expanded)
         assertThat(activePreset.isModified).isTrue()
-        assertThat(getActivePlaylistIds()).containsExactlyElementsIn(testPlaylistIds.subList(1, 4))
+        assertThat(getActivePlaylistIds())
+            .containsExactlyElementsIn(testPlaylistIds.subList(1, 4))
     }
 
     @Test fun unsaved_changes_dialog_drop_changes() = runTest {
@@ -590,7 +601,8 @@ class MediaControllerViewModelTests {
         waitUntil { !activePreset.isModified }
         assertThat(activePreset.isModified).isFalse()
         assertThat(instance.shownDialog).isNull()
-        assertThat(instance.state.showingPresetSelector).isFalse()
+        assertThat(instance.state.visibility)
+            .isEqualTo(MediaControllerState.Visibility.Collapsed)
 
         // Check that new preset was loaded
         assertThat(activePreset.name).isEqualTo(testPresetNames[2])
@@ -617,7 +629,8 @@ class MediaControllerViewModelTests {
         assertThat(activePreset.name).isEqualTo(testPresetNames[2])
         assertThat(activePreset.isModified).isFalse()
         assertThat(instance.shownDialog).isNull()
-        assertThat(instance.state.showingPresetSelector).isFalse()
+        assertThat(instance.state.visibility)
+            .isEqualTo(MediaControllerState.Visibility.Collapsed)
 
         // Check that new preset was loaded
         assertThat(activePreset.name).isEqualTo(testPresetNames[2])

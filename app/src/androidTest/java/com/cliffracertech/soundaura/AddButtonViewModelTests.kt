@@ -56,16 +56,15 @@ class AddButtonViewModelTests {
         val dataStore = PreferenceDataStoreFactory.create(scope = coroutineScope) {
             context.preferencesDataStoreFile("testDatastore")
         }
-        val messageHandler = MessageHandler()
-        val addToLibraryUseCase = AddToLibraryUseCase(
-            permissionHandler, messageHandler, playlistDao)
+        val addToLibraryUseCase = AddToLibraryUseCase(permissionHandler, playlistDao)
         
         val activePresetState = ActivePresetState(dataStore, db.presetDao())
+        val messageHandler = MessageHandler()
         val readModifyPresetsUseCase = ReadModifyPresetsUseCase(
             messageHandler, activePresetState, db.presetDao(), playlistDao)
         
         instance = AddButtonViewModel(
-            context, coroutineScope, navigationState,
+            context, coroutineScope, messageHandler, navigationState,
             readModifyPresetsUseCase, addToLibraryUseCase)
     }
 
@@ -242,43 +241,43 @@ class AddButtonViewModelTests {
         advanceUntilIdle()
 
         goto_name_tracks_step_with_multiple_files()
-        assertThat(nameTracksStep.errors).containsExactly(false, false, false).inOrder()
+        assertThat(nameTracksStep.errorIndices).isEmpty()
         assertThat(nameTracksStep.message).isNull()
 
         // Check for name already used error
         nameTracksStep.onNameChange(0, existingTrackName)
         advanceUntilIdle()
-        assertThat(nameTracksStep.errors).containsExactly(true, false, false).inOrder()
+        assertThat(nameTracksStep.errorIndices).containsExactly(0)
         assertThat(nameTracksStep.message).isInstanceOf(Validator.Message.Error::class)
 
         // Check that error changes back to false when name is changed
         nameTracksStep.onNameChange(0, "new name")
         advanceUntilIdle()
         assertThat(nameTracksStep.message).isNull()
-        assertThat(nameTracksStep.errors).containsExactly(false, false, false).inOrder()
+        assertThat(nameTracksStep.errorIndices).isEmpty()
 
         // Check that both track names are invalid when they match
         nameTracksStep.onNameChange(1, "new name")
         advanceUntilIdle()
-        assertThat(nameTracksStep.errors).containsExactly(true, true, false).inOrder()
+        assertThat(nameTracksStep.errorIndices).containsExactly(0, 1)
         assertThat(nameTracksStep.message).isInstanceOf(Validator.Message.Error::class)
 
         // Check that error changes back to false when names no longer match
         nameTracksStep.onNameChange(1, "new name 2")
         advanceUntilIdle()
-        assertThat(nameTracksStep.errors).containsExactly(false, false, false).inOrder()
+        assertThat(nameTracksStep.errorIndices).isEmpty()
         assertThat(nameTracksStep.message).isNull()
 
         // Check for blank name error
         nameTracksStep.onNameChange(2, "")
         advanceUntilIdle()
-        assertThat(nameTracksStep.errors).containsExactly(false, false, true).inOrder()
+        assertThat(nameTracksStep.errorIndices).containsExactly(2)
         assertThat(nameTracksStep.message).isInstanceOf(Validator.Message.Error::class)
 
         // Check that error changes back to false when name is no longer blank
         nameTracksStep.onNameChange(2, "non-blank name")
         advanceUntilIdle()
-        assertThat(nameTracksStep.errors).containsExactly(false, false, false).inOrder()
+        assertThat(nameTracksStep.errorIndices).isEmpty()
         assertThat(nameTracksStep.message).isNull()
     }
 
@@ -350,6 +349,7 @@ class AddButtonViewModelTests {
         playlistOptionsStep.mutablePlaylist.moveTrack(1, 2)
         playlistOptionsStep.mutablePlaylist.moveTrack(0, 1)
         playlistOptionsStep.finishButton.onClick()
+        waitUntil { instance.dialogState == null }
         assertThat(instance.dialogState).isNull()
 
         waitUntil { playlistDao.getPlaylistNames().size == 2 }
@@ -367,7 +367,7 @@ class AddButtonViewModelTests {
     }
 
     @Test fun onClick_does_not_open_dialog_with_no_active_playlists() {
-        navigationState.showingPresetSelector = true
+        navigationState.showPresetSelector()
         instance.onClick()
         assertThat(instance.dialogState).isNull()
     }

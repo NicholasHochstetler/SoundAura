@@ -51,7 +51,7 @@ class TrackNamesValidatorTests {
         assertThat(instance.values).containsExactlyElementsIn(newNames).inOrder()
         waitUntil { false } // we need to wait until the validator retrieves the
                             // existing track/playlist names from the database
-        assertThat(instance.errors).containsNoneOf(true, true)
+        assertThat(instance.errorIndices).isEmpty()
         assertThat(instance.message).isNull()
     }
 
@@ -69,41 +69,41 @@ class TrackNamesValidatorTests {
 
     @Test fun existing_names_cause_errors() = runTest {
         instance.setValue(1, existingNames[1])
-        waitUntil { instance.errors.contains(true) }
-        assertThat(instance.errors).containsExactly(false, true, false, false, false).inOrder()
+        waitUntil { instance.errorIndices.isNotEmpty() }
+        assertThat(instance.errorIndices).containsExactly(1)
 
         instance.setValue(3, existingNames[3])
-        waitUntil { instance.errors.count { true } == 2 }
-        assertThat(instance.errors).containsExactly(false, true, false, true, false).inOrder()
+        waitUntil { instance.errorIndices.size == 2 }
+        assertThat(instance.errorIndices).containsExactly(1, 3)
 
         instance.setValue(1, newNames[1])
         instance.setValue(3, newNames[3])
-        waitUntil { !instance.errors.contains(true) }
-        assertThat(instance.errors).containsNoneOf(true, true)
+        waitUntil { instance.errorIndices.isEmpty() }
+        assertThat(instance.errorIndices).isEmpty()
     }
 
     @Test fun blank_names_cause_errors() = runTest {
         instance.setValue(2, "")
-        waitUntil { instance.errors.contains(true) }
-        assertThat(instance.errors).containsExactly(false, false, true, false, false).inOrder()
+        waitUntil { instance.errorIndices.isNotEmpty() }
+        assertThat(instance.errorIndices).containsExactly(2)
 
         instance.setValue(4, "")
-        waitUntil { instance.errors.count { true } == 2 }
-        assertThat(instance.errors).containsExactly(false, false, true, false, true).inOrder()
+        waitUntil { instance.errorIndices.size == 2 }
+        assertThat(instance.errorIndices).containsExactly(2, 4).inOrder()
 
         instance.setValue(2, "a")
         instance.setValue(4, "b")
-        waitUntil { !instance.errors.contains(true) }
-        assertThat(instance.errors).containsNoneOf(true, true)
+        waitUntil { instance.errorIndices.isEmpty() }
+        assertThat(instance.errorIndices).isEmpty()
     }
 
     @Test fun duplicate_new_names_are_both_errors() = runTest {
         instance.setValue(3, newNames[1])
-        waitUntil { instance.errors.count { it } == 2 }
-        assertThat(instance.errors).containsExactly(false, true, false, true, false).inOrder()
+        waitUntil { instance.errorIndices.size == 2 }
+        assertThat(instance.errorIndices).containsExactly(1, 3)
         instance.setValue(1, newNames[3])
-        waitUntil { !instance.errors.contains(true) }
-        assertThat(instance.errors).containsNoneOf(true, true)
+        waitUntil { instance.errorIndices.isEmpty() }
+        assertThat(instance.errorIndices).isEmpty()
     }
 
     @Test fun error_message_updates() = runTest {

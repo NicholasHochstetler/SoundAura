@@ -179,11 +179,11 @@ class PlaylistDaoTests {
     }
     
     @Test fun filter_new_tracks() = runTest {
-        var newTracks = dao.filterNewTracks(testUris)
+        var newTracks = dao.filterNewUris(testUris)
         assertThat(newTracks).containsExactlyElementsIn(testUris)
         
         dao.insertPlaylist(testPlaylistNames[0], false, testTracks.subList(0, 2))
-        newTracks = dao.filterNewTracks(testUris)
+        newTracks = dao.filterNewUris(testUris)
         assertThat(newTracks).containsExactlyElementsIn(testUris.subList(2, 5))
     }
 

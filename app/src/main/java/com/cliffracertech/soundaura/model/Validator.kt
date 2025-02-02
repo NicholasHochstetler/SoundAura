@@ -74,14 +74,15 @@ class Validator <T>(
 
     suspend fun validate(): T? {
         val value = this.value
-        val isValid = messageFor(value, true)?.isError != true
-        // If the value is invalid when there is no error message and
-        // no error update job, validate must have been called with an
-        // unchanged invalid initial value. In this case we will run
-        // the custom setter so that an update message job will be ran
-        // and an appropriate error message will be shown.
-        if (!isValid && updateMessageJob == null && message == null)
-            this.value = value
+        val message = messageFor(value, true)
+        val isValid = message?.isError != true
+        // If the value is invalid when there is no error message, validate must
+        // have been called with an unchanged invalid initial value. In this case
+        // we will set the message manually.
+        if (!isValid && this.message == null) {
+            updateMessageJob?.cancel()
+            this.message = message
+        }
         return if (isValid) value else null
     }
 
